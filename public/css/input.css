@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-5 text-[15px] font-bold transition-colors; }
+  .btn-primary { @apply btn bg-brand text-white hover:bg-brand-dark; }
+  .btn-dark { @apply btn bg-ink text-white hover:bg-ink-soft; }
+  .btn-outline { @apply btn border border-line-strong bg-white text-ink hover:bg-peach-soft; }
+  .btn-danger { @apply btn border border-[#E3B3A8] bg-white text-danger hover:bg-danger-bg; }
+  .card { @apply rounded-[20px] border border-line bg-white; }
+  .field { @apply min-h-[48px] w-full rounded-xl border border-[#DCC3AC] bg-white px-3.5 text-[15px] text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20; }
+  .label { @apply text-sm font-bold; }
+  .chip { @apply inline-flex min-h-[40px] items-center rounded-full border px-4 text-sm font-semibold; }
+  .badge { @apply inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-[13px] font-bold; }
+}

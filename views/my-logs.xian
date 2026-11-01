@@ -1,0 +1,27 @@
+{{> head}}
+{{> attnav}}
+<main class="flex-1 mx-auto w-full max-w-5xl px-6 py-8">
+  <div class="ph"><div><h1>My attendance</h1><p>Your own time in and time out records.</p></div></div>
+  <form method="GET" action="/my-logs" class="card filters">
+    <div><label class="label">From</label><input class="field" type="date" name="date_from" value="{{filters.date_from}}"></div>
+    <div><label class="label">To</label><input class="field" type="date" name="date_to" value="{{filters.date_to}}"></div>
+    <button type="submit" class="btn-primary">Filter</button>
+  </form>
+  <div class="card tw">
+    <table class="tbl">
+      <thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th class="num">Hours</th><th class="num">Late (min)</th><th>Status</th></tr></thead>
+      <tbody>
+        {{#each logs}}
+          <tr>
+            <td class="t"><b>{{log_date}}</b></td><td class="t">{{time_in}}</td><td class="t">{{time_out}}</td>
+            <td class="num">{{hours_worked}}</td><td class="num">{{late_minutes}}</td>
+            <td><span class="st st-{{status}}">{{status_label}}</span></td>
+          </tr>
+        {{else}}
+          <tr><td colspan="6" class="empty">No attendance records yet.</td></tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+</main>
+{{> footer}}

@@ -1,0 +1,30 @@
+{{> head}}
+{{> attnav}}
+<main class="flex-1 mx-auto w-full max-w-5xl px-4 py-8">
+  <div class="mx-auto max-w-md">
+    <div class="text-center mb-6">
+      <p class="text-sm font-semibold uppercase tracking-wide text-brand">Employee kiosk</p>
+      <p id="clock" class="text-5xl font-extrabold mt-1">--:--</p>
+      <p class="text-sm mt-1">{{today}}</p>
+    </div>
+    <div class="card p-6">
+      <form method="POST" action="/kiosk/time-in" id="kioskForm">
+        <label class="label" for="employee_code">Employee code</label>
+        <input class="field" id="employee_code" name="employee_code" placeholder="EMP-0001" autocomplete="off" autofocus required>
+        <div class="grid grid-cols-2 gap-3 mt-4">
+          <button type="submit" class="btn-primary">Time in</button>
+          <button type="submit" class="btn-outline" formaction="/kiosk/time-out">Time out</button>
+        </div>
+      </form>
+      <p class="text-xs mt-4">Shift starts 08:00. Time in after 08:00 is marked late.</p>
+    </div>
+  </div>
+</main>
+<script>
+  function tick() {
+    document.getElementById("clock").textContent =
+      new Date().toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+  }
+  tick(); setInterval(tick, 1000);
+</script>
+{{> footer}}

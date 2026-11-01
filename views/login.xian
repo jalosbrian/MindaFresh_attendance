@@ -1,0 +1,17 @@
+{{> head}}
+{{> attnav}}
+<main class="flex-1 mx-auto w-full max-w-5xl px-4 py-8">
+  <div class="mx-auto max-w-sm">
+    <h1 class="text-2xl font-extrabold mb-4">Staff login</h1>
+    <div class="card p-6">
+      <form method="POST" action="/login">
+        <label class="label" for="username">Username</label>
+        <input class="field" id="username" name="username" autocomplete="username" required>
+        <label class="label mt-3" for="password">Password</label>
+        <input class="field" id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit" class="btn-primary w-full mt-5">Log in</button>
+      </form>
+    </div>
+  </div>
+</main>
+{{> footer}}

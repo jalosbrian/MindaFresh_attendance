@@ -1,0 +1,36 @@
+{{> head}}
+{{> attnav}}
+<main class="flex-1 mx-auto w-full max-w-5xl px-6 py-8">
+  <div class="ph">
+    <div><h1>Dashboard</h1><p>Today, {{today}}</p></div>
+    <form method="POST" action="/end-of-day" class="ph-act">
+      <input class="field" type="date" name="date" value="{{today}}">
+      <button type="submit" class="btn-outline" style="white-space:nowrap">Run end-of-day</button>
+    </form>
+  </div>
+  <div class="stats">
+    <div class="stat s-present"><span>Present</span><b>{{stats.present}}</b></div>
+    <div class="stat s-late"><span>Late</span><b>{{stats.late}}</b></div>
+    <div class="stat s-absent"><span>Absent</span><b>{{stats.absent}}</b></div>
+    <div class="stat s-on_leave"><span>On leave</span><b>{{stats.on_leave}}</b></div>
+  </div>
+  <div class="sec">Today's logs</div>
+  <div class="card tw">
+    <table class="tbl">
+      <thead><tr><th>Employee</th><th>Time in</th><th>Time out</th><th class="num">Hours</th><th class="num">Late (min)</th><th>Status</th></tr></thead>
+      <tbody>
+        {{#each logs}}
+          <tr>
+            <td><b>{{full_name}}</b><span class="sub">{{employee_code}}</span></td>
+            <td class="t">{{time_in}}</td><td class="t">{{time_out}}</td>
+            <td class="num">{{hours_worked}}</td><td class="num">{{late_minutes}}</td>
+            <td><span class="st st-{{status}}">{{status_label}}</span></td>
+          </tr>
+        {{else}}
+          <tr><td colspan="6" class="empty">No attendance recorded yet today.</td></tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+</main>
+{{> footer}}

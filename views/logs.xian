@@ -1,0 +1,35 @@
+{{> head}}
+{{> attnav}}
+<main class="flex-1 mx-auto w-full max-w-5xl px-6 py-8">
+  <div class="ph"><div><h1>Attendance logs</h1><p>Filter, review and correct employee logs.</p></div></div>
+  <form method="GET" action="/logs" class="card filters">
+    <div><label class="label">Employee code</label><input class="field" name="employee_code" value="{{filters.employee_code}}" placeholder="EMP-0001"></div>
+    <div><label class="label">From</label><input class="field" type="date" name="date_from" value="{{filters.date_from}}"></div>
+    <div><label class="label">To</label><input class="field" type="date" name="date_to" value="{{filters.date_to}}"></div>
+    <div><label class="label">Status</label>
+      <select class="field" name="status"><option value="">All</option>{{#each statuses}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select>
+    </div>
+    <button type="submit" class="btn-primary">Filter</button>
+  </form>
+  <div class="card tw">
+    <table class="tbl">
+      <thead><tr><th>Date</th><th>Employee</th><th>Time in</th><th>Time out</th><th class="num">Hours</th><th class="num">Late</th><th class="num">Undertime</th><th>Status</th><th>Remarks</th><th></th></tr></thead>
+      <tbody>
+        {{#each logs}}
+          <tr>
+            <td class="t"><b>{{log_date}}</b><span class="sub">{{log_code}}</span></td>
+            <td><b>{{full_name}}</b><span class="sub">{{employee_code}}</span></td>
+            <td class="t">{{time_in}}</td><td class="t">{{time_out}}</td>
+            <td class="num">{{hours_worked}}</td><td class="num">{{late_minutes}}</td><td class="num">{{undertime_minutes}}</td>
+            <td><span class="st st-{{status}}">{{status_label}}</span></td>
+            <td class="rm" title="{{remarks}}">{{remarks}}</td>
+            <td><a href="/logs/{{log_code}}/edit" class="act">Correct</a></td>
+          </tr>
+        {{else}}
+          <tr><td colspan="10" class="empty">No logs match your filters.</td></tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+</main>
+{{> footer}}

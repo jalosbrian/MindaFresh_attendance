@@ -1,0 +1,8 @@
+<footer class="mt-auto bg-ink text-[#F3DCC8]">
+  <div class="mx-auto flex max-w-6xl flex-wrap justify-between gap-4 px-6 py-8 text-sm">
+    <span><strong class="text-white">MindaFresh Food Distribution, Inc.</strong> · Calapan City, Oriental Mindoro</span>
+    <span>{{appName}}</span>
+  </div>
+</footer>
+</body>
+</html>

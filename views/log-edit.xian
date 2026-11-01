@@ -1,0 +1,24 @@
+{{> head}}
+{{> attnav}}
+<main class="flex-1 mx-auto w-full max-w-5xl px-4 py-8">
+  <div class="mx-auto max-w-lg">
+    <h1 class="text-2xl font-extrabold mb-1">Correct attendance log</h1>
+    <p class="text-sm mb-4">{{log.log_code}} &middot; {{log.employee_code}} &middot; {{log.full_name}} &middot; {{log.log_date}} &middot; now: {{log.status_label}}</p>
+    <div class="card p-6">
+      <form method="POST" action="/logs/{{log.log_code}}/edit">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="label" for="time_in">Time in</label><input class="field" type="time" id="time_in" name="time_in" value="{{log.time_in}}"></div>
+          <div><label class="label" for="time_out">Time out</label><input class="field" type="time" id="time_out" name="time_out" value="{{log.time_out}}"></div>
+        </div>
+        <label class="label mt-3" for="remarks">Reason for the correction</label>
+        <input class="field" id="remarks" name="remarks" maxlength="255" placeholder="e.g. Forgot to time in, confirmed by supervisor" required>
+        <p class="text-xs mt-3">Status, late minutes, undertime and hours are recalculated from the times. Your name is saved as the one who corrected it.</p>
+        <div class="grid grid-cols-2 gap-3 mt-5">
+          <button type="submit" class="btn-primary">Save correction</button>
+          <a href="/logs" class="btn-outline text-center">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</main>
+{{> footer}}

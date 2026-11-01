@@ -1,0 +1,27 @@
+{{> head}}
+{{> attnav}}
+<main class="flex-1 mx-auto w-full max-w-5xl px-6 py-8">
+  <div class="ph"><div><h1>Attendance summary</h1><p>Totals per employee for payroll. "Days attended" includes late days.</p></div></div>
+  <form method="GET" action="/summary" class="card filters">
+    <div><label class="label">From</label><input class="field" type="date" name="date_from" value="{{date_from}}"></div>
+    <div><label class="label">To</label><input class="field" type="date" name="date_to" value="{{date_to}}"></div>
+    <button type="submit" class="btn-primary">Show</button>
+  </form>
+  <div class="card tw">
+    <table class="tbl">
+      <thead><tr><th>Employee</th><th class="num">Days attended</th><th class="num">Of which late</th><th class="num">Absent</th><th class="num">On leave</th><th class="num">Hours</th><th class="num">Late (min)</th><th class="num">Undertime (min)</th></tr></thead>
+      <tbody>
+        {{#each rows}}
+          <tr>
+            <td><b>{{employee_code}}</b></td>
+            <td class="num">{{days_present}}</td><td class="num">{{days_late}}</td><td class="num">{{days_absent}}</td><td class="num">{{days_on_leave}}</td>
+            <td class="num">{{hours_worked}}</td><td class="num">{{late_minutes}}</td><td class="num">{{undertime_minutes}}</td>
+          </tr>
+        {{else}}
+          <tr><td colspan="8" class="empty">No records in this period.</td></tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+</main>
+{{> footer}}
