@@ -1,312 +1,759 @@
-// shared/services/attendanceService.js  (owner: Brian, Attendance)
-//
-// Attendance only WRITES to attendance_logs. It only READS employees,
-// leave_requests and holidays. Real schema: shared/database/schema.sql.
-// attendance_logs links to employees by employee_id (not employee_code).
-import { QueryTypes } from "sequelize";
-import { sequelize } from "../config/database.js";
-import { AttendanceLog } from "../models/AttendanceLog.js";
-import {
-  todayYmd,
-  dayOfWeek,
-  shiftBoundary,
-  lateMinutes,
-  undertimeMinutes,
-  hoursWorked,
-} from "../utils/attendanceTime.js";
 
-const SHIFT_START = process.env.SHIFT_START || "08:00";
-const SHIFT_END = process.env.SHIFT_END || "17:00";
-const LUNCH_HOURS = Number(process.env.LUNCH_HOURS || 1);
-const MAX_REGULAR_HOURS = Number(process.env.MAX_REGULAR_HOURS || 8);
-// Days end-of-day marking runs (0 = Sun ... 6 = Sat). Change in .env.
-const WORK_DAYS = (process.env.WORK_DAYS || "1,2,3,4,5,6")
-  .split(",")
-  .map((n) => Number(n.trim()));
+import { QueryTypes } from 'sequelize';
+import { db } from '../storage.js';
 
-function fail(status, message) {
-  const err = new Error(message);
-  err.status = status;
-  return err;
-}
-
-const clean = (code) => String(code || "").trim().toUpperCase();
-
-/* ------------------------------ HR READS ------------------------------ */
-
-async function findEmployee(employeeCode) {
-  const rows = await sequelize.query(
-    `SELECT id, employee_code, first_name, last_name, status
-       FROM employees
-      WHERE employee_code = :code
-      LIMIT 1`,
-    { replacements: { code: employeeCode }, type: QueryTypes.SELECT }
-  );
-  return rows[0] || null;
-}
-
-async function activeEmployee(rawCode) {
-  const code = clean(rawCode);
-  if (!code) throw fail(400, "Please enter your employee code.");
-  const employee = await findEmployee(code);
-  if (!employee) throw fail(404, "Employee not found.");
-  if (employee.status !== "active") throw fail(403, "Employee is not active.");
-  return employee;
-}
-
-async function isHoliday(ymd) {
-  const rows = await sequelize.query(
-    `SELECT name FROM holidays WHERE holiday_date = :d LIMIT 1`,
-    { replacements: { d: ymd }, type: QueryTypes.SELECT }
-  );
-  return rows[0] || null;
-}
-
-// Active employees (already hired) with NO log on :d, plus approved-leave flag.
-async function employeesWithoutLog(ymd) {
-  return sequelize.query(
-    `SELECT e.id,
-            EXISTS (
-              SELECT 1 FROM leave_requests lr
-               WHERE lr.employee_id = e.id
-                 AND lr.status = 'approved'
-                 AND :d BETWEEN lr.start_date AND lr.end_date
-            ) AS has_leave
-       FROM employees e
-      WHERE e.status = 'active'
-        AND e.hire_date <= :d
-        AND NOT EXISTS (
-              SELECT 1 FROM attendance_logs a
-               WHERE a.employee_id = e.id AND a.log_date = :d
-            )`,
-    { replacements: { d: ymd }, type: QueryTypes.SELECT }
-  );
-}
-
-/* ----------------------------- TIME IN / OUT ----------------------------- */
-
-export async function timeIn(rawCode) {
-  const employee = await activeEmployee(rawCode);
-  const now = new Date();
-  const today = todayYmd(now);
-
-  const existing = await AttendanceLog.findOne({
-    where: { employee_id: employee.id, log_date: today },
+const q = (sql, replacements = {}, transaction) =>
+  db.query(sql, {
+    replacements,
+    type: QueryTypes.SELECT,
+    transaction
   });
-  if (existing && existing.time_in) {
-    throw fail(409, "You already timed in today.");
+
+const exec = (sql, replacements = {}, transaction) =>
+  db.query(sql, { replacements, transaction });
+
+const TZ = 'Asia/Manila';
+
+export const dateKey = (d = new Date()) =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(d);
+
+const clock = d =>
+  new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).format(d);
+
+const localStamp = d =>
+  `${dateKey(d)} ${clock(d)}:${
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: TZ,
+      second: '2-digit'
+    }).format(d)
+  }`;
+
+const minutes = value => {
+  const [h, m] = String(value).split(':').map(Number);
+  return h * 60 + m;
+};
+
+const localMinutes = d => minutes(clock(d));
+
+const toDate = value => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+
+  const text = String(value).trim();
+
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(text)) {
+    return new Date(text.replace(' ', 'T') + '+08:00');
   }
 
-  const late = lateMinutes(now, today, SHIFT_START);
-  const values = {
-    time_in: now,
-    late_minutes: late,
-    status: late > 0 ? "late" : "present",
-    remarks: null,
+  return new Date(text);
+};
+
+const shiftStart = () =>
+  minutes(process.env.SHIFT_START || '08:00');
+
+const shiftEnd = () =>
+  minutes(process.env.SHIFT_END || '17:00');
+
+const overtimeMinimum = () => {
+  const value = Number(process.env.OT_MIN_MINUTES ?? 30);
+  return Number.isFinite(value) && value >= 0 ? value : 30;
+};
+
+const overtimeMaximum = () => {
+  const value = Number(process.env.OT_MAX_MINUTES ?? 240);
+  return Number.isFinite(value) && value >= 0 ? value : 240;
+};
+
+export const workday = date => {
+  const configured = process.env.WORK_DAYS || '1,2,3,4,5,6';
+
+  const allowed = configured
+    .split(',')
+    .map(Number);
+
+  const day = new Date(`${date}T12:00:00Z`);
+  const weekday = day.getUTCDay() || 7;
+
+  return allowed.includes(weekday);
+};
+
+// REGULAR HOURS + UNDERTIME + OVERTIME
+export const metrics = (timeIn, timeOut) => {
+  if (!timeIn || !timeOut) {
+    return {
+      hours_worked: '0.00',
+      undertime_minutes: 0,
+      overtime_minutes: 0
+    };
+  }
+
+  const begin = toDate(timeIn);
+  const end = toDate(timeOut);
+
+  if (
+    !begin ||
+    !end ||
+    !Number.isFinite(begin.getTime()) ||
+    !Number.isFinite(end.getTime()) ||
+    end < begin
+  ) {
+    return {
+      hours_worked: '0.00',
+      undertime_minutes: 0,
+      overtime_minutes: 0
+    };
+  }
+
+  const totalMinutes = Math.max(
+    0,
+    Math.floor((end.getTime() - begin.getTime()) / 60000)
+  );
+
+  // Fixed 60-minute lunch deduction.
+  const regularMinutes = Math.max(0, totalMinutes - 60);
+
+  const hoursWorked = Math.min(8, regularMinutes / 60);
+
+  const endMinutes = localMinutes(end);
+
+  const undertime = Math.max(0, shiftEnd() - endMinutes);
+
+  const overtimeRaw = Math.max(0, endMinutes - shiftEnd());
+
+  const overtime =
+    overtimeRaw >= overtimeMinimum()
+      ? Math.min(overtimeRaw, overtimeMaximum())
+      : 0;
+
+  return {
+    hours_worked: hoursWorked.toFixed(2),
+    undertime_minutes: undertime,
+    overtime_minutes: overtime
   };
+};
 
-  try {
-    // An end-of-day "absent" row may already exist; update it instead.
-    const log = existing
-      ? await existing.update(values)
-      : await AttendanceLog.create({
-          employee_id: employee.id,
-          log_date: today,
-          ...values,
-        });
-    return { log, employee };
-  } catch (err) {
-    if (err.name === "SequelizeUniqueConstraintError") {
-      throw fail(409, "You already timed in today.");
+// FOUR-PUNCH SEQUENCE
+export const nextAction = log => {
+  if (!log) return 'Time in';
+  if (!log.lunch_out) return 'Lunch out';
+  if (!log.lunch_in) return 'Lunch in';
+  if (!log.time_out) return 'Time out';
+  return 'Complete';
+};
+
+export async function lookup(code) {
+  const rows = await q(
+    `SELECT id, employee_code, first_name, last_name, status
+     FROM employees
+     WHERE employee_code = :code`,
+    { code }
+  );
+
+  return rows[0];
+}
+
+export async function getLog(employee_id, date = dateKey()) {
+  const rows = await q(
+    `SELECT *
+     FROM attendance_logs
+     WHERE employee_id = :employee_id
+       AND log_date = :date`,
+    { employee_id, date }
+  );
+
+  return rows[0];
+}
+
+// EMPLOYEE ATTENDANCE PUNCH
+export async function punch(code) {
+  const employee = await lookup(code);
+
+  if (!employee || employee.status !== 'active') {
+    throw Error('Unknown or inactive employee code.');
+  }
+
+  const date = dateKey();
+
+  if (!workday(date)) {
+    throw Error('No time-in on rest days.');
+  }
+
+  const holiday = await q(
+    `SELECT id
+     FROM holidays
+     WHERE holiday_date = :date`,
+    { date }
+  );
+
+  if (holiday.length) {
+    throw Error('Punches are not allowed on holidays.');
+  }
+
+  return db.transaction(async transaction => {
+    const rows = await q(
+      `SELECT *
+       FROM attendance_logs
+       WHERE employee_id = :id
+         AND log_date = :date
+       FOR UPDATE`,
+      { id: employee.id, date },
+      transaction
+    );
+
+    const log = rows[0];
+    const action = nextAction(log);
+
+    if (action === 'Complete') {
+      throw Error('You already timed out today.');
     }
-    throw err;
-  }
-}
 
-export async function timeOut(rawCode) {
-  const employee = await activeEmployee(rawCode);
-  const now = new Date();
-  const today = todayYmd(now);
+    const now = new Date();
+    const stamp = localStamp(now);
 
-  const log = await AttendanceLog.findOne({
-    where: { employee_id: employee.id, log_date: today },
+    const last = log && [
+      log.time_out,
+      log.lunch_in,
+      log.lunch_out,
+      log.time_in
+    ].find(Boolean);
+
+    if (last) {
+      const lastDate = toDate(last);
+
+      if (
+        lastDate &&
+        Number.isFinite(lastDate.getTime()) &&
+        now.getTime() - lastDate.getTime() < 60000
+      ) {
+        throw Error(
+          'Please wait at least one minute before punching again.'
+        );
+      }
+    }
+
+    if (!log) {
+      const late = Math.max(
+        0,
+        localMinutes(now) - shiftStart()
+      );
+
+      await exec(
+        `INSERT INTO attendance_logs
+          (employee_id, log_date, time_in, late_minutes, status)
+         VALUES
+          (:id, :date, :stamp, :late, :status)`,
+        {
+          id: employee.id,
+          date,
+          stamp,
+          late,
+          status: late ? 'late' : 'present'
+        },
+        transaction
+      );
+
+      await exec(
+        `UPDATE attendance_logs
+         SET log_code = CONCAT('ATT-', LPAD(id, 4, '0'))
+         WHERE employee_id = :employee_id
+           AND log_date = :date
+           AND log_code IS NULL`,
+        {
+          employee_id: employee.id,
+          date
+        },
+        transaction
+      );
+    } else if (action === 'Lunch out') {
+      await exec(
+        `UPDATE attendance_logs
+         SET lunch_out = :stamp
+         WHERE id = :id`,
+        { stamp, id: log.id },
+        transaction
+      );
+    } else if (action === 'Lunch in') {
+      await exec(
+        `UPDATE attendance_logs
+         SET lunch_in = :stamp
+         WHERE id = :id`,
+        { stamp, id: log.id },
+        transaction
+      );
+    } else if (action === 'Time out') {
+      const m = metrics(log.time_in, now);
+
+      await exec(
+        `UPDATE attendance_logs
+         SET time_out = :stamp,
+             hours_worked = :hours_worked,
+             undertime_minutes = :undertime_minutes,
+             overtime_minutes = :overtime_minutes
+         WHERE id = :id`,
+        {
+          stamp,
+          id: log.id,
+          ...m
+        },
+        transaction
+      );
+    }
+
+    return {
+      name: `${employee.first_name} ${employee.last_name}`,
+      action,
+      time: clock(now)
+    };
   });
-  if (!log || !log.time_in) throw fail(404, "No time-in record found for today.");
-  if (log.time_out) throw fail(409, "You already timed out today.");
-
-  await log.update({
-    time_out: now,
-    hours_worked: hoursWorked(log.time_in, now, LUNCH_HOURS, MAX_REGULAR_HOURS),
-    undertime_minutes: undertimeMinutes(now, today, SHIFT_END),
-  });
-  return { log, employee };
 }
 
-/* -------------------------------- REPORTS -------------------------------- */
-
-// Logs with employee names. All filters optional (employee_code, not id).
-export async function getLogs({ employee_code, date_from, date_to, status } = {}) {
-  const where = [];
-  const replacements = {};
-  if (employee_code) {
-    where.push("e.employee_code = :employee_code");
-    replacements.employee_code = clean(employee_code);
-  }
-  if (date_from) {
-    where.push("a.log_date >= :date_from");
-    replacements.date_from = date_from;
-  }
-  if (date_to) {
-    where.push("a.log_date <= :date_to");
-    replacements.date_to = date_to;
-  }
-  if (status) {
-    where.push("a.status = :status");
-    replacements.status = status;
-  }
-
-  return sequelize.query(
-    `SELECT a.log_code, e.employee_code, e.first_name, e.last_name,
-            a.log_date, a.time_in, a.time_out, a.hours_worked,
-            a.late_minutes, a.undertime_minutes, a.status, a.remarks
-       FROM attendance_logs a
-       JOIN employees e ON e.id = a.employee_id
-      ${where.length ? "WHERE " + where.join(" AND ") : ""}
-      ORDER BY a.log_date DESC, e.employee_code ASC`,
-    { replacements, type: QueryTypes.SELECT }
+// TODAY BOARD
+export async function today(date = dateKey()) {
+  const employees = await q(
+    `SELECT
+       e.employee_code,
+       CONCAT(e.first_name, ' ', e.last_name) AS name,
+       d.name AS department,
+       l.*
+     FROM employees e
+     LEFT JOIN departments d
+       ON d.id = e.department_id
+     LEFT JOIN attendance_logs l
+       ON l.employee_id = e.id
+       AND l.log_date = :date
+     WHERE e.status = 'active'
+     ORDER BY e.last_name`,
+    { date }
   );
-}
 
-// Per-employee totals for payroll.
-export async function getSummary({ date_from, date_to } = {}) {
-  if (!date_from || !date_to) {
-    throw fail(400, "date_from and date_to are required.");
-  }
-  const rows = await sequelize.query(
-    `SELECT e.employee_code,
-            SUM(a.status IN ('present','late')) AS days_present,
-            SUM(a.status = 'late')              AS days_late,
-            SUM(a.status = 'absent')            AS days_absent,
-            SUM(a.status = 'on_leave')          AS days_on_leave,
-            COALESCE(SUM(a.hours_worked), 0)       AS hours_worked,
-            COALESCE(SUM(a.late_minutes), 0)       AS late_minutes,
-            COALESCE(SUM(a.undertime_minutes), 0)  AS undertime_minutes
-       FROM attendance_logs a
-       JOIN employees e ON e.id = a.employee_id
-      WHERE a.log_date BETWEEN :date_from AND :date_to
-      GROUP BY e.employee_code
-      ORDER BY e.employee_code`,
-    { replacements: { date_from, date_to }, type: QueryTypes.SELECT }
-  );
-  return rows.map((r) => ({
-    employee_code: r.employee_code,
-    days_present: Number(r.days_present),
-    days_late: Number(r.days_late),
-    days_absent: Number(r.days_absent),
-    days_on_leave: Number(r.days_on_leave),
-    hours_worked: Number(r.hours_worked),
-    late_minutes: Number(r.late_minutes),
-    undertime_minutes: Number(r.undertime_minutes),
+  return employees.map(e => ({
+    ...e,
+    display_status:
+      e.status && e.log_date
+        ? e.status
+        : 'not_yet_in'
   }));
 }
 
-// Counts for the dashboard cards.
-export async function getDayStats(ymd = todayYmd()) {
-  const rows = await sequelize.query(
-    `SELECT status, COUNT(*) AS total
-       FROM attendance_logs WHERE log_date = :d GROUP BY status`,
-    { replacements: { d: ymd }, type: QueryTypes.SELECT }
+// ATTENDANCE LOGS
+export async function logs(from, to) {
+  validateRange(from, to);
+
+  return q(
+    `SELECT
+       l.*,
+       e.employee_code,
+       CONCAT(e.first_name, ' ', e.last_name) AS name
+     FROM attendance_logs l
+     JOIN employees e ON e.id = l.employee_id
+     WHERE l.log_date BETWEEN :from AND :to
+     ORDER BY l.log_date DESC, e.last_name`,
+    { from, to }
   );
-  const stats = { present: 0, late: 0, absent: 0, on_leave: 0 };
-  for (const r of rows) stats[r.status] = Number(r.total);
-  return { date: ymd, ...stats };
 }
 
-/* ------------------------------ END OF DAY ------------------------------ */
+// HR PAYROLL INTEGRATION
+export async function getSummary(from, to) {
+  validateRange(from, to);
 
-// Active employee with no log: approved leave -> on_leave, else absent.
-// Skips non-work days and holidays.
-export async function runEndOfDay(ymd = todayYmd()) {
-  if (!WORK_DAYS.includes(dayOfWeek(ymd))) {
-    return { date: ymd, skipped: true, reason: "Not a work day", absent: 0, on_leave: 0 };
-  }
-  const holiday = await isHoliday(ymd);
-  if (holiday) {
-    return { date: ymd, skipped: true, reason: `Holiday: ${holiday.name}`, absent: 0, on_leave: 0 };
-  }
+  // Fill missing attendance rows before summarizing.
+  await closeDays(from, to);
 
-  const missing = await employeesWithoutLog(ymd);
-  let absent = 0;
-  let onLeave = 0;
+  return q(
+    `SELECT
+       e.id AS employee_id,
+       e.employee_code,
+       CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
 
-  for (const m of missing) {
-    const leave = Number(m.has_leave) === 1;
-    try {
-      await AttendanceLog.create({
-        employee_id: m.id,
-        log_date: ymd,
-        status: leave ? "on_leave" : "absent",
-        remarks: leave ? "Approved leave" : "No time-in recorded",
+       COALESCE(SUM(
+         CASE WHEN l.status IN ('present', 'late')
+         THEN 1 ELSE 0 END
+       ), 0) AS days_present,
+
+       COALESCE(SUM(
+         CASE WHEN l.status = 'late'
+         THEN 1 ELSE 0 END
+       ), 0) AS days_late,
+
+       COALESCE(SUM(
+         CASE WHEN l.status = 'absent'
+         THEN 1 ELSE 0 END
+       ), 0) AS days_absent,
+
+       COALESCE(SUM(
+         CASE WHEN l.status = 'on_leave'
+         THEN 1 ELSE 0 END
+       ), 0) AS days_on_leave,
+
+       COALESCE(SUM(l.late_minutes), 0) AS late_minutes,
+
+       COALESCE(SUM(l.undertime_minutes), 0)
+         AS undertime_minutes,
+
+       COALESCE(SUM(l.overtime_minutes), 0)
+         AS overtime_minutes,
+
+       COALESCE(ROUND(SUM(l.hours_worked), 2), 0)
+         AS hours_worked,
+
+       COALESCE(SUM(l.late_minutes), 0)
+         AS total_late_minutes,
+
+       COALESCE(SUM(l.undertime_minutes), 0)
+         AS total_undertime_minutes,
+
+       COALESCE(SUM(l.overtime_minutes), 0)
+         AS total_overtime_minutes,
+
+       COALESCE(ROUND(SUM(l.hours_worked), 2), 0)
+         AS total_hours_worked
+
+     FROM employees e
+     LEFT JOIN attendance_logs l
+       ON l.employee_id = e.id
+       AND l.log_date BETWEEN :from AND :to
+
+     WHERE e.status = 'active'
+
+     GROUP BY e.id, e.employee_code,
+              e.first_name, e.last_name
+
+     ORDER BY e.last_name, e.first_name`,
+    { from, to }
+  );
+}
+
+// CLOSE MISSING ATTENDANCE DAYS
+export async function closeDays(from, to) {
+  validateRange(from, to);
+
+  let created = 0;
+
+  const todayKey = dateKey();
+
+  for (
+    let d = new Date(`${from}T12:00:00Z`);
+    dateKey(d) <= to;
+    d.setUTCDate(d.getUTCDate() + 1)
+  ) {
+    const date = dateKey(d);
+
+    if (date >= todayKey || !workday(date)) {
+      continue;
+    }
+
+    const holiday = await q(
+      `SELECT id FROM holidays
+       WHERE holiday_date = :date`,
+      { date }
+    );
+
+    if (holiday.length) continue;
+
+    const people = await q(
+      `SELECT
+         e.id,
+         CASE
+           WHEN EXISTS (
+             SELECT 1
+             FROM leave_requests r
+             WHERE r.employee_id = e.id
+               AND r.status = 'approved'
+               AND :date BETWEEN r.start_date AND r.end_date
+           )
+           THEN 'on_leave'
+           ELSE 'absent'
+         END AS status
+       FROM employees e
+       WHERE e.status = 'active'`,
+      { date }
+    );
+
+    for (const person of people) {
+      await db.transaction(async transaction => {
+        const existing = await q(
+          `SELECT id
+           FROM attendance_logs
+           WHERE employee_id = :employee_id
+             AND log_date = :date`,
+          {
+            employee_id: person.id,
+            date
+          },
+          transaction
+        );
+
+        if (existing.length) return;
+
+        const [result] = await exec(
+          `INSERT IGNORE INTO attendance_logs
+            (employee_id, log_date, status)
+           VALUES
+            (:employee_id, :date, :status)`,
+          {
+            employee_id: person.id,
+            date,
+            status: person.status
+          },
+          transaction
+        );
+
+        const inserted = await q(
+          `SELECT id, log_code
+           FROM attendance_logs
+           WHERE employee_id = :employee_id
+             AND log_date = :date`,
+          {
+            employee_id: person.id,
+            date
+          },
+          transaction
+        );
+
+        if (inserted.length && !inserted[0].log_code) {
+          await exec(
+            `UPDATE attendance_logs
+             SET log_code = CONCAT('ATT-', LPAD(id, 4, '0'))
+             WHERE id = :id`,
+            { id: inserted[0].id },
+            transaction
+          );
+        }
+
+        if (Number(result?.affectedRows || 0) === 1) {
+          created++;
+        }
       });
-      leave ? onLeave++ : absent++;
-    } catch (err) {
-      // Someone timed in while this was running: skip them.
-      if (err.name !== "SequelizeUniqueConstraintError") throw err;
     }
   }
-  return { date: ymd, skipped: false, reason: null, absent, on_leave: onLeave };
+
+  return created;
 }
 
-/* ------------------------------ CORRECTIONS ------------------------------ */
-
-const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-export async function getLogByCode(logCode) {
-  const rows = await sequelize.query(
-    `SELECT a.log_code, e.employee_code, e.first_name, e.last_name,
-            a.log_date, a.time_in, a.time_out, a.status, a.remarks
-       FROM attendance_logs a
-       JOIN employees e ON e.id = a.employee_id
-      WHERE a.log_code = :code
-      LIMIT 1`,
-    { replacements: { code: logCode }, type: QueryTypes.SELECT }
-  );
-  return rows[0] || null;
-}
-
-// HR fixes a log (forgot to tap, wrong time). A reason is required and the
-// HR employee is saved in corrected_by_id.
-export async function correctLog(logCode, { time_in, time_out, remarks } = {}, correctedById) {
-  time_in = String(time_in || "").trim();
-  time_out = String(time_out || "").trim();
-  remarks = String(remarks || "").trim();
-
-  if (!remarks) throw fail(400, "Please give a reason for the correction.");
-  if (!time_in && !time_out) throw fail(400, "Enter a time in or a time out.");
-  if ((time_in && !HHMM.test(time_in)) || (time_out && !HHMM.test(time_out))) {
-    throw fail(400, "Use the HH:MM time format.");
+// HR ATTENDANCE CORRECTIONS
+export async function correct(id, body, actor) {
+  if (!body.remarks?.trim()) {
+    throw Error('Correction remarks are required.');
   }
 
-  const log = await AttendanceLog.findOne({ where: { log_code: logCode } });
-  if (!log) throw fail(404, "Attendance log not found.");
+  if (
+    !['present', 'late', 'absent', 'on_leave']
+      .includes(body.status)
+  ) {
+    throw Error('Invalid status.');
+  }
 
-  const ymd = String(log.log_date).slice(0, 10);
-  const tin = time_in ? shiftBoundary(ymd, time_in) : log.time_in;
-  const tout = time_out ? shiftBoundary(ymd, time_out) : log.time_out;
+  const log = (
+    await q(
+      `SELECT * FROM attendance_logs WHERE id = :id`,
+      { id }
+    )
+  )[0];
 
-  if (!tin) throw fail(400, "A time in is needed before a time out.");
-  if (tout && tout < tin) throw fail(400, "Time out cannot be earlier than time in.");
+  if (!log) {
+    throw Error('Log not found.');
+  }
 
-  const late = lateMinutes(tin, ymd, SHIFT_START);
-  await log.update({
-    time_in: tin,
-    time_out: tout,
-    late_minutes: late,
-    status: late > 0 ? "late" : "present",
-    hours_worked: tout ? hoursWorked(tin, tout, LUNCH_HOURS, MAX_REGULAR_HOURS) : 0,
-    undertime_minutes: tout ? undertimeMinutes(tout, ymd, SHIFT_END) : 0,
-    remarks: remarks.slice(0, 255),
-    corrected_by_id: correctedById || null,
-  });
-  return log;
+  const values = {};
+
+  for (const field of [
+    'time_in',
+    'lunch_out',
+    'lunch_in',
+    'time_out'
+  ]) {
+    const raw = String(body[field] || '').trim();
+
+    values[field] = raw
+      ? raw.replace('T', ' ') +
+        (raw.length === 16 ? ':00' : '')
+      : null;
+
+    if (
+      values[field] &&
+      !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
+        .test(values[field])
+    ) {
+      throw Error('Invalid time format.');
+    }
+  }
+
+  if (values.lunch_in && !values.lunch_out) {
+    throw Error('Lunch in requires lunch out.');
+  }
+
+  if (values.lunch_out && !values.time_in) {
+    throw Error('Lunch out requires time in.');
+  }
+
+  if (values.time_out && !values.time_in) {
+    throw Error('Time out requires time in.');
+  }
+
+  const times = [
+    'time_in',
+    'lunch_out',
+    'lunch_in',
+    'time_out'
+  ].map(key => values[key]).filter(Boolean);
+
+  if (times.some((v, i) => i > 0 && v < times[i - 1])) {
+    throw Error('Punch times must be in chronological order.');
+  }
+
+  const logDate = String(log.log_date).slice(0, 10);
+
+  const expectedDate = /^\d{4}-\d{2}-\d{2}$/.test(logDate)
+    ? logDate
+    : dateKey(new Date(log.log_date));
+
+  if (times.some(v => v.slice(0, 10) !== expectedDate)) {
+    throw Error('Punch date must match attendance date.');
+  }
+
+  if (
+    ['absent', 'on_leave'].includes(body.status) &&
+    times.length
+  ) {
+    throw Error('Absent/on-leave logs cannot have punches.');
+  }
+
+  const m = metrics(values.time_in, values.time_out);
+
+  const late = values.time_in
+    ? Math.max(
+        0,
+        minutes(values.time_in.slice(11, 16)) - shiftStart()
+      )
+    : 0;
+
+  await exec(
+    `UPDATE attendance_logs
+     SET time_in = :time_in,
+         lunch_out = :lunch_out,
+         lunch_in = :lunch_in,
+         time_out = :time_out,
+         status = :status,
+         remarks = :remarks,
+         corrected_by_id = :actor,
+         late_minutes = :late,
+         hours_worked = :hours_worked,
+         undertime_minutes = :undertime_minutes,
+         overtime_minutes = :overtime_minutes
+     WHERE id = :id`,
+    {
+      id,
+      actor,
+      status: body.status,
+      remarks: body.remarks.trim(),
+      late,
+      ...m,
+      ...values
+    }
+  );
+}
+
+// DATE VALIDATION
+export function validateRange(from, to) {
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(from || '') ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(to || '') ||
+    from > to
+  ) {
+    throw Error('Invalid date range.');
+  }
+
+  const days =
+    (
+      new Date(to + 'T12:00:00Z') -
+      new Date(from + 'T12:00:00Z')
+    ) / 86400000;
+
+  if (days > 366) {
+    throw Error('Date range must be 366 days or less.');
+  }
+}
+
+// HOLIDAYS
+export async function holidays() {
+  return q(
+    `SELECT * FROM holidays
+     ORDER BY holiday_date DESC`
+  );
+}
+
+export async function addHoliday(body) {
+  if (!['regular', 'special'].includes(body.holiday_type)) {
+    throw Error('Invalid holiday type.');
+  }
+
+  await exec(
+    `INSERT INTO holidays
+      (holiday_date, name, holiday_type)
+     VALUES
+      (:holiday_date, :name, :holiday_type)`,
+    {
+      holiday_date: body.holiday_date,
+      name: body.name,
+      holiday_type: body.holiday_type
+    }
+  );
+}
+
+export async function removeHoliday(id) {
+  await exec(
+    `DELETE FROM holidays WHERE id = :id`,
+    { id }
+  );
+}
+
+export async function editHoliday(id, body) {
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(body.holiday_date || '') ||
+    !body.name?.trim() ||
+    !['regular', 'special'].includes(body.holiday_type)
+  ) {
+    throw Error('Invalid holiday details.');
+  }
+
+  await exec(
+    `UPDATE holidays
+     SET holiday_date = :holiday_date,
+         name = :name,
+         holiday_type = :holiday_type
+     WHERE id = :id`,
+    {
+      id,
+      holiday_date: body.holiday_date,
+      name: body.name.trim(),
+      holiday_type: body.holiday_type
+    }
+  );
+}
+
+// DTR TIME FORMAT
+export function dtrTime(value) {
+  if (!value) return '';
+
+  if (value instanceof Date) {
+    return clock(value);
+  }
+
+  const text = String(value);
+
+  if (text.includes('T')) {
+    return clock(new Date(text));
+  }
+
+  return text.slice(11, 16);
 }

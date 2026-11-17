@@ -1,35 +1,996 @@
-{{> head}}
-{{> attnav}}
-<main class="flex-1 mx-auto w-full max-w-5xl px-6 py-8">
-  <div class="ph"><div><h1>Attendance logs</h1><p>Filter, review and correct employee logs.</p></div></div>
-  <form method="GET" action="/logs" class="card filters">
-    <div><label class="label">Employee code</label><input class="field" name="employee_code" value="{{filters.employee_code}}" placeholder="EMP-0001"></div>
-    <div><label class="label">From</label><input class="field" type="date" name="date_from" value="{{filters.date_from}}"></div>
-    <div><label class="label">To</label><input class="field" type="date" name="date_to" value="{{filters.date_to}}"></div>
-    <div><label class="label">Status</label>
-      <select class="field" name="status"><option value="">All</option>{{#each statuses}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select>
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Attendance Logs | MindaFresh Attendance</title>
+  <link rel="stylesheet" href="/style.css">
+
+  <style>
+    .logs-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .logs-header h2 {
+      margin: 0;
+      font-size: 22px;
+      color: #302018;
+    }
+
+    .logs-filter {
+      display: flex;
+      align-items: end;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .logs-filter label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #634b3f;
+    }
+
+    .logs-filter input {
+      padding: 10px 12px;
+      border: 1px solid #ead6c9;
+      border-radius: 9px;
+      background: #fff;
+      color: #33231c;
+      font: inherit;
+    }
+
+    .logs-filter button,
+    .edit-log-btn,
+    .modal-save {
+      border: 0;
+      background: #d43b00;
+      color: #fff;
+      border-radius: 9px;
+      padding: 10px 16px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .logs-filter button:hover,
+    .edit-log-btn:hover,
+    .modal-save:hover {
+      background: #b93200;
+    }
+
+    .logs-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .logs-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1300px;
+    }
+
+    .logs-table th {
+      padding: 15px 12px;
+      background: #fcf6f2;
+      color: #72574a;
+      font-size: 11px;
+      font-weight: 700;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .logs-table td {
+      padding: 14px 12px;
+      border-bottom: 1px solid #f1e4dc;
+      color: #392820;
+      font-size: 12px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .logs-table tbody tr:hover {
+      background: #fffbf8;
+    }
+
+    .log-actions {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .edit-log-btn {
+      padding: 9px 14px;
+    }
+
+    .view-log-btn {
+      padding: 9px 14px;
+      border: 1px solid #e6c7b6;
+      border-radius: 9px;
+      background: #fff4ec;
+      color: #a63208;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .view-log-btn:hover {
+      background: #ffe7d7;
+    }
+
+    .logs-empty {
+      text-align: center;
+      padding: 40px 20px !important;
+      color: #8a776b !important;
+    }
+
+    .log-modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(27, 16, 10, 0.65);
+      backdrop-filter: blur(3px);
+    }
+
+    .log-modal-overlay.is-open {
+      display: flex;
+    }
+
+    .log-modal {
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      background: #fffaf7;
+      border: 1px solid #ecd9ce;
+      border-radius: 18px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+    }
+
+    .log-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 24px 26px 18px;
+      border-bottom: 1px solid #f0dfd4;
+    }
+
+    .log-modal-header h2 {
+      margin: 0 0 6px;
+      color: #302018;
+      font-size: 21px;
+    }
+
+    .log-modal-header p {
+      margin: 0;
+      color: #897366;
+      font-size: 12px;
+    }
+
+    .log-modal-close {
+      width: 34px;
+      height: 34px;
+      min-width: 34px;
+      min-height: 34px;
+      flex: 0 0 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      margin: 0;
+      border: 0;
+      border-radius: 9px;
+      background: #d43b00;
+      color: white;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+
+    .log-modal-close:hover {
+      background: #b93200;
+    }
+
+    .log-modal-close svg {
+      width: 17px;
+      height: 17px;
+      display: block;
+      flex-shrink: 0;
+    }
+
+    .log-modal-body {
+      padding: 24px 26px;
+    }
+
+    .log-field {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-bottom: 17px;
+    }
+
+    .log-field label {
+      color: #5d4639;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .log-field input,
+    .log-field select,
+    .log-field textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 13px;
+      border: 1px solid #e5d1c5;
+      border-radius: 9px;
+      background: white;
+      color: #33231c;
+      font: inherit;
+      font-size: 13px;
+    }
+
+    .log-field input:focus,
+    .log-field select:focus,
+    .log-field textarea:focus {
+      outline: none;
+      border-color: #d43b00;
+      box-shadow: 0 0 0 3px rgba(212, 59, 0, 0.1);
+    }
+
+    .log-field textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .log-field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 15px;
+    }
+
+    .log-modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 17px 26px 24px;
+      border-top: 1px solid #f0dfd4;
+    }
+
+    .modal-cancel {
+      border: 1px solid #e5d1c5;
+      border-radius: 9px;
+      background: white;
+      color: #634b3f;
+      padding: 11px 17px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .modal-cancel:hover {
+      background: #f7ebe4;
+    }
+
+    .modal-save {
+      padding: 11px 18px;
+    }
+
+    .log-details {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .detail-item {
+      padding: 13px 15px;
+      border: 1px solid #f0dfd4;
+      border-radius: 10px;
+      background: #fff;
+      min-width: 0;
+    }
+
+    .detail-item.full {
+      grid-column: 1 / -1;
+    }
+
+    .detail-label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #8a7162;
+    }
+
+    .detail-value {
+      display: block;
+      color: #302018;
+      font-size: 13px;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .reason-value {
+      line-height: 1.6;
+      color: #6b3a24;
+    }
+
+    body.log-modal-open {
+      overflow: hidden;
+    }
+
+    @media (max-width: 600px) {
+      .log-modal-overlay {
+        padding: 10px;
+      }
+
+      .log-modal-header,
+      .log-modal-body,
+      .log-modal-footer {
+        padding-left: 18px;
+        padding-right: 18px;
+      }
+
+      .log-field-grid,
+      .log-details {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <aside class="sidebar">
+      <a class="brand" href="/dashboard">
+        <img src="/mindafresh-logo.png" alt="MindaFresh logo">
+        <span>
+          <b>MindaFresh</b>
+          <small>Attendance</small>
+        </span>
+      </a>
+
+      <div class="side-heading">
+        ATTENDANCE MANAGEMENT
+      </div>
+
+      <div class="side-heading workspace">
+        WORKSPACE
+      </div>
+
+      <nav class="side-nav">
+        <a class="side-link" href="/dashboard">
+          <span class="nav-icon">▦</span>
+          <span>Dashboard</span>
+        </a>
+
+        <a class="side-link" href="/kiosk">
+          <span class="nav-icon">◷</span>
+          <span>Attendance Kiosk</span>
+        </a>
+
+        <a class="side-link active" href="/logs">
+          <span class="nav-icon">▤</span>
+          <span>Attendance Logs</span>
+        </a>
+
+        <a class="side-link" href="/dtr">
+          <span class="nav-icon">▣</span>
+          <span>Daily Time Record</span>
+        </a>
+
+        <a class="side-link" href="/summary">
+          <span class="nav-icon">▥</span>
+          <span>Period Summary</span>
+        </a>
+
+        <a class="side-link" href="/holidays">
+          <span class="nav-icon">▧</span>
+          <span>Holidays</span>
+        </a>
+      </nav>
+
+      <div class="side-bottom">
+        <span class="online-dot"></span>
+        Part of MindaFresh ERP
+        <small>One database. One connected team.</small>
+      </div>
+    </aside>
+
+    <div class="app-area">
+
+      <header class="topbar">
+        <div class="breadcrumbs">
+          MindaFresh ERP
+          <span>/</span>
+          <b>Attendance Logs</b>
+        </div>
+
+        <div class="account">
+          {{#if staff}}
+            <div class="avatar">M</div>
+
+            <div class="account-info">
+              <strong>{{staff.username}}</strong>
+              <small>{{staff.role}}</small>
+            </div>
+
+            <form class="inline" method="post" action="/logout">
+              <button class="outline small-btn" type="submit">
+                Logout
+              </button>
+            </form>
+          {{else}}
+            <a class="outline login-link" href="/login">
+              Staff Login
+            </a>
+          {{/if}}
+        </div>
+      </header>
+
+      <main class="content">
+
+        <div class="page-intro">
+          <div>
+            <div class="eyebrow">
+              MINDAFRESH / ATTENDANCE
+            </div>
+
+            <h1>Attendance Logs</h1>
+
+            <p class="intro-sub">
+              MindaFresh employee attendance management workspace.
+            </p>
+          </div>
+        </div>
+
+        <div class="logs-header">
+          <h2>Attendance Records</h2>
+
+          <form class="logs-filter" method="get" action="/logs">
+            <label>
+              From
+              <input type="date" name="from" value="{{from}}" required>
+            </label>
+
+            <label>
+              To
+              <input type="date" name="to" value="{{to}}" required>
+            </label>
+
+            <button type="submit">Filter</button>
+          </form>
+        </div>
+
+        <div class="card scroll">
+          <div class="logs-table-wrap">
+            <table class="logs-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Employee</th>
+                  <th>Status</th>
+                  <th>In</th>
+                  <th>Lunch Out</th>
+                  <th>Lunch In</th>
+                  <th>Out</th>
+                  <th>Hours</th>
+                  <th>Late Min</th>
+                  <th>Undertime</th>
+                  <th>OT Min</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {{#each rows}}
+                  <tr>
+                    <td>{{date log_date}}</td>
+                    <td>{{name}}</td>
+                    <td>{{status}}</td>
+                    <td>{{datetime time_in}}</td>
+                    <td>{{datetime lunch_out}}</td>
+                    <td>{{datetime lunch_in}}</td>
+                    <td>{{datetime time_out}}</td>
+                    <td>{{hours_worked}}</td>
+                    <td>{{late_minutes}}</td>
+                    <td>{{undertime_minutes}}</td>
+                    <td>{{overtime_minutes}}</td>
+
+                    <td>
+                      <div class="log-actions">
+
+                        <button
+                          type="button"
+                          class="view-log-btn"
+                          data-id="{{id}}"
+                          data-name="{{name}}"
+                          data-date="{{date log_date}}"
+                          data-status="{{status}}"
+                          data-time-in="{{time_in}}"
+                          data-lunch-out="{{lunch_out}}"
+                          data-lunch-in="{{lunch_in}}"
+                          data-time-out="{{time_out}}"
+                          data-hours="{{hours_worked}}"
+                          data-late="{{late_minutes}}"
+                          data-undertime="{{undertime_minutes}}"
+                          data-overtime="{{overtime_minutes}}"
+                          data-remarks="{{remarks}}"
+                          data-corrected-by="{{corrected_by_id}}"
+                        >
+                          View Details
+                        </button>
+
+                        <button
+                          type="button"
+                          class="edit-log-btn"
+                          data-id="{{id}}"
+                          data-name="{{name}}"
+                          data-date="{{date log_date}}"
+                          data-status="{{status}}"
+                          data-time-in="{{time_in}}"
+                          data-lunch-out="{{lunch_out}}"
+                          data-lunch-in="{{lunch_in}}"
+                          data-time-out="{{time_out}}"
+                        >
+                          Edit
+                        </button>
+
+                      </div>
+                    </td>
+                  </tr>
+                {{else}}
+                  <tr>
+                    <td colspan="12" class="logs-empty">
+                      No attendance records found for the selected date range.
+                    </td>
+                  </tr>
+                {{/each}}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </main>
     </div>
-    <button type="submit" class="btn-primary">Filter</button>
-  </form>
-  <div class="card tw">
-    <table class="tbl">
-      <thead><tr><th>Date</th><th>Employee</th><th>Time in</th><th>Time out</th><th class="num">Hours</th><th class="num">Late</th><th class="num">Undertime</th><th>Status</th><th>Remarks</th><th></th></tr></thead>
-      <tbody>
-        {{#each logs}}
-          <tr>
-            <td class="t"><b>{{log_date}}</b><span class="sub">{{log_code}}</span></td>
-            <td><b>{{full_name}}</b><span class="sub">{{employee_code}}</span></td>
-            <td class="t">{{time_in}}</td><td class="t">{{time_out}}</td>
-            <td class="num">{{hours_worked}}</td><td class="num">{{late_minutes}}</td><td class="num">{{undertime_minutes}}</td>
-            <td><span class="st st-{{status}}">{{status_label}}</span></td>
-            <td class="rm" title="{{remarks}}">{{remarks}}</td>
-            <td><a href="/logs/{{log_code}}/edit" class="act">Correct</a></td>
-          </tr>
-        {{else}}
-          <tr><td colspan="10" class="empty">No logs match your filters.</td></tr>
-        {{/each}}
-      </tbody>
-    </table>
   </div>
-</main>
-{{> footer}}
+
+  <!-- EDIT MODAL -->
+  <div
+    id="editLogOverlay"
+    class="log-modal-overlay"
+    aria-hidden="true"
+  >
+    <div
+      class="log-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="editLogTitle"
+    >
+      <div class="log-modal-header">
+        <div>
+          <h2 id="editLogTitle">Edit Attendance Record</h2>
+          <p id="editLogEmployee">Employee / Date</p>
+        </div>
+
+        <button
+          type="button"
+          class="log-modal-close"
+          id="closeLogModal"
+          aria-label="Close edit modal"
+        >
+          <svg viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round">
+            <path d="M18 6 6 18M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <form id="editLogForm" method="post" action="">
+        <div class="log-modal-body">
+
+          <div class="log-field">
+            <label for="editStatus">Attendance Status</label>
+            <select id="editStatus" name="status" required>
+              <option value="present">Present</option>
+              <option value="late">Late</option>
+              <option value="absent">Absent</option>
+              <option value="on_leave">On Leave</option>
+            </select>
+          </div>
+
+          <div class="log-field-grid">
+            <div class="log-field">
+              <label for="editTimeIn">Time In</label>
+              <input id="editTimeIn" type="datetime-local" name="time_in">
+            </div>
+
+            <div class="log-field">
+              <label for="editLunchOut">Lunch Out</label>
+              <input id="editLunchOut" type="datetime-local" name="lunch_out">
+            </div>
+
+            <div class="log-field">
+              <label for="editLunchIn">Lunch In</label>
+              <input id="editLunchIn" type="datetime-local" name="lunch_in">
+            </div>
+
+            <div class="log-field">
+              <label for="editTimeOut">Time Out</label>
+              <input id="editTimeOut" type="datetime-local" name="time_out">
+            </div>
+          </div>
+
+          <div class="log-field">
+            <label for="editRemarks">Reason for Correction</label>
+            <textarea
+              id="editRemarks"
+              name="remarks"
+              placeholder="Explain why this attendance record needs correction..."
+              required
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="log-modal-footer">
+          <button
+            type="button"
+            class="modal-cancel"
+            id="cancelLogModal"
+          >
+            Cancel
+          </button>
+
+          <button type="submit" class="modal-save">
+            Save Correction
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- VIEW DETAILS MODAL -->
+  <div
+    id="viewLogOverlay"
+    class="log-modal-overlay"
+    aria-hidden="true"
+  >
+    <div
+      class="log-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="viewLogTitle"
+    >
+      <div class="log-modal-header">
+        <div>
+          <h2 id="viewLogTitle">Attendance Details</h2>
+          <p id="viewLogEmployee">Employee / Date</p>
+        </div>
+
+        <button
+          type="button"
+          class="log-modal-close"
+          id="closeViewModal"
+          aria-label="Close details modal"
+        >
+          <svg viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round">
+            <path d="M18 6 6 18M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="log-modal-body">
+        <div class="log-details">
+
+          <div class="detail-item">
+            <span class="detail-label">Record ID</span>
+            <span class="detail-value" id="detailId">—</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Attendance Status</span>
+            <span class="detail-value" id="detailStatus">—</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Time In</span>
+            <span class="detail-value" id="detailTimeIn">—</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Lunch Out</span>
+            <span class="detail-value" id="detailLunchOut">—</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Lunch In</span>
+            <span class="detail-value" id="detailLunchIn">—</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Time Out</span>
+            <span class="detail-value" id="detailTimeOut">—</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Hours Worked</span>
+            <span class="detail-value" id="detailHours">—</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Late Minutes</span>
+            <span class="detail-value" id="detailLate">—</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Undertime Minutes</span>
+            <span class="detail-value" id="detailUndertime">—</span>
+          </div>
+
+          <div class="detail-item">
+            <span class="detail-label">Overtime Minutes</span>
+            <span class="detail-value" id="detailOvertime">—</span>
+          </div>
+
+          <div class="detail-item full">
+            <span class="detail-label">Reason / Remarks</span>
+            <span
+              class="detail-value reason-value"
+              id="detailRemarks"
+            >—</span>
+          </div>
+
+          <div class="detail-item full">
+            <span class="detail-label">Corrected By (Employee ID)</span>
+            <span class="detail-value" id="detailCorrectedBy">—</span>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="log-modal-footer">
+        <button
+          type="button"
+          class="modal-cancel"
+          id="cancelViewModal"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const editOverlay = document.getElementById('editLogOverlay');
+    const viewOverlay = document.getElementById('viewLogOverlay');
+
+    const editForm = document.getElementById('editLogForm');
+    const editEmployee = document.getElementById('editLogEmployee');
+    const viewEmployee = document.getElementById('viewLogEmployee');
+
+    const statusInput = document.getElementById('editStatus');
+    const timeInInput = document.getElementById('editTimeIn');
+    const lunchOutInput = document.getElementById('editLunchOut');
+    const lunchInInput = document.getElementById('editLunchIn');
+    const timeOutInput = document.getElementById('editTimeOut');
+    const remarksInput = document.getElementById('editRemarks');
+
+    let previousFocus = null;
+
+    function toDateTimeLocal(value) {
+      if (!value || value === 'null') return '';
+
+      const mysqlMatch = value.match(
+        /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/
+      );
+
+      if (mysqlMatch) {
+        return mysqlMatch[1] + 'T' + mysqlMatch[2];
+      }
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return '';
+
+      const pad = n => String(n).padStart(2, '0');
+
+      return [
+        date.getFullYear(),
+        pad(date.getMonth() + 1),
+        pad(date.getDate())
+      ].join('-') + 'T' +
+      pad(date.getHours()) + ':' +
+      pad(date.getMinutes());
+    }
+
+    function displayValue(value) {
+      if (
+        value === undefined ||
+        value === null ||
+        value === '' ||
+        value === 'null' ||
+        value === 'undefined'
+      ) {
+        return '—';
+      }
+
+      return String(value);
+    }
+
+    function displayDateTime(value) {
+      if (!value || value === 'null') return '—';
+
+      const local = toDateTimeLocal(value);
+      if (!local) return displayValue(value);
+
+      const date = new Date(local);
+      if (Number.isNaN(date.getTime())) return displayValue(value);
+
+      return date.toLocaleString('en-PH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+
+    function openModal(overlay, focusTarget) {
+      previousFocus = document.activeElement;
+
+      overlay.classList.add('is-open');
+      overlay.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('log-modal-open');
+
+      focusTarget.focus();
+    }
+
+    function closeModal(overlay) {
+      overlay.classList.remove('is-open');
+      overlay.setAttribute('aria-hidden', 'true');
+
+      if (!document.querySelector('.log-modal-overlay.is-open')) {
+        document.body.classList.remove('log-modal-open');
+      }
+
+      if (previousFocus) previousFocus.focus();
+    }
+
+    function openEditModal(button) {
+      const data = button.dataset;
+
+      editForm.action =
+        '/logs/' + encodeURIComponent(data.id) + '/correct';
+
+      editEmployee.textContent =
+        (data.name || 'Employee') + ' • ' + (data.date || '');
+
+      statusInput.value = data.status || 'present';
+      timeInInput.value = toDateTimeLocal(data.timeIn);
+      lunchOutInput.value = toDateTimeLocal(data.lunchOut);
+      lunchInInput.value = toDateTimeLocal(data.lunchIn);
+      timeOutInput.value = toDateTimeLocal(data.timeOut);
+
+      // Require a fresh reason for every correction.
+      remarksInput.value = '';
+
+      openModal(
+        editOverlay,
+        document.getElementById('closeLogModal')
+      );
+    }
+
+    function openViewModal(button) {
+      const data = button.dataset;
+
+      viewEmployee.textContent =
+        (data.name || 'Employee') + ' • ' + (data.date || '');
+
+      const fields = {
+        detailId: data.id,
+        detailStatus: data.status,
+        detailHours: data.hours,
+        detailLate: data.late,
+        detailUndertime: data.undertime,
+        detailOvertime: data.overtime,
+        detailRemarks: data.remarks || 'No remarks recorded',
+        detailCorrectedBy:
+          data.correctedBy || 'No manual correction recorded'
+      };
+
+      Object.entries(fields).forEach(([id, value]) => {
+        document.getElementById(id).textContent =
+          displayValue(value);
+      });
+
+      document.getElementById('detailTimeIn').textContent =
+        displayDateTime(data.timeIn);
+
+      document.getElementById('detailLunchOut').textContent =
+        displayDateTime(data.lunchOut);
+
+      document.getElementById('detailLunchIn').textContent =
+        displayDateTime(data.lunchIn);
+
+      document.getElementById('detailTimeOut').textContent =
+        displayDateTime(data.timeOut);
+
+      openModal(
+        viewOverlay,
+        document.getElementById('closeViewModal')
+      );
+    }
+
+    document.querySelectorAll('.edit-log-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        openEditModal(button);
+      });
+    });
+
+    document.querySelectorAll('.view-log-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        openViewModal(button);
+      });
+    });
+
+    document.getElementById('closeLogModal').addEventListener(
+      'click',
+      () => closeModal(editOverlay)
+    );
+
+    document.getElementById('cancelLogModal').addEventListener(
+      'click',
+      () => closeModal(editOverlay)
+    );
+
+    document.getElementById('closeViewModal').addEventListener(
+      'click',
+      () => closeModal(viewOverlay)
+    );
+
+    document.getElementById('cancelViewModal').addEventListener(
+      'click',
+      () => closeModal(viewOverlay)
+    );
+
+    [editOverlay, viewOverlay].forEach(overlay => {
+      overlay.addEventListener('click', event => {
+        if (event.target === overlay) {
+          closeModal(overlay);
+        }
+      });
+    });
+
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+
+      if (editOverlay.classList.contains('is-open')) {
+        closeModal(editOverlay);
+      }
+
+      if (viewOverlay.classList.contains('is-open')) {
+        closeModal(viewOverlay);
+      }
+    });
+  </script>
+</body>
+</html>

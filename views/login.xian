@@ -1,17 +1,988 @@
-{{> head}}
-{{> attnav}}
-<main class="flex-1 mx-auto w-full max-w-5xl px-4 py-8">
-  <div class="mx-auto max-w-sm">
-    <h1 class="text-2xl font-extrabold mb-4">Staff login</h1>
-    <div class="card p-6">
-      <form method="POST" action="/login">
-        <label class="label" for="username">Username</label>
-        <input class="field" id="username" name="username" autocomplete="username" required>
-        <label class="label mt-3" for="password">Password</label>
-        <input class="field" id="password" name="password" type="password" autocomplete="current-password" required>
-        <button type="submit" class="btn-primary w-full mt-5">Log in</button>
-      </form>
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MindaFresh | Attendance ERP</title>
+
+  <link rel="stylesheet" href="/style.css">
+
+  <script
+    src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"
+    defer>
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body.auth-page {
+      margin: 0;
+      min-height: 100vh;
+      background: #ffeadb;
+      color: #3b241a;
+      font-family: Arial, sans-serif;
+    }
+
+    .auth-wrap {
+      width: 100%;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 35px 20px;
+    }
+
+    .auth-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      width: 100%;
+      max-width: 1220px;
+      min-height: 750px;
+      background: #fff;
+      border: 1px solid #f0d8c8;
+      border-radius: 26px;
+      overflow: hidden;
+      box-shadow: 0 15px 45px rgba(100, 52, 25, .08);
+    }
+
+    .clock-panel {
+      background: #fff9f5;
+      padding: 40px;
+    }
+
+    .auth-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 35px;
+      flex-wrap: wrap;
+    }
+
+    .auth-brand img {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+    }
+
+    .auth-brand strong {
+      font-size: 21px;
+    }
+
+    .brand-divider {
+      width: 1px;
+      height: 25px;
+      background: #e8c4b2;
+    }
+
+    .auth-brand > span:last-child {
+      font-size: 13px;
+      color: #cf3b00;
+    }
+
+    .shift-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #e0f7e9;
+      color: #166a40;
+      padding: 9px 14px;
+      border-radius: 25px;
+      font-size: 12px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      background: #16a34a;
+      border-radius: 50%;
+    }
+
+    .hero-clock {
+      font-size: clamp(42px, 4vw, 62px);
+      font-weight: 800;
+      letter-spacing: -2px;
+      margin-top: 20px;
+    }
+
+    .hero-clock small {
+      font-size: 20px;
+      color: #c83c05;
+      letter-spacing: 0;
+    }
+
+    .hero-date {
+      font-size: 14px;
+      color: #815d4e;
+      margin: 8px 0 28px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 750;
+      margin: 0 0 8px;
+    }
+
+    .section-description {
+      color: #8b6555;
+      font-size: 12px;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .auth-section-label {
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .code-field {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid #edcbb8;
+      border-radius: 11px;
+      background: #fff;
+      padding: 0 14px;
+      height: 49px;
+    }
+
+    .code-field span {
+      color: #cf3b00;
+    }
+
+    .code-field input {
+      width: 100%;
+      height: 100%;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 13px;
+      color: #3b241a;
+    }
+
+    .qr-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      margin: 14px 0;
+    }
+
+    .qr-open-btn {
+      width: 100%;
+      padding: 14px;
+      border: 1px solid #d64005;
+      border-radius: 11px;
+      background: #fff;
+      color: #d64005;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: .2s;
+    }
+
+    .qr-open-btn:hover {
+      background: #fff0e8;
+    }
+
+    .qr-cancel-btn {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #d43d00;
+      border-radius: 11px;
+      background: #fff0e9;
+      color: #bd3500;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .qr-cancel-btn:hover {
+      background: #ffe0d1;
+    }
+
+    .qr-open-btn:disabled,
+    .qr-cancel-btn:disabled {
+      opacity: .6;
+      cursor: wait;
+    }
+
+    .qr-camera-container {
+      display: none;
+      background: #241c19;
+      padding: 10px;
+      border-radius: 14px;
+      margin: 12px 0;
+      overflow: hidden;
+    }
+
+    .qr-camera-container.active {
+      display: block;
+    }
+
+    #qr-reader {
+      width: 100%;
+      min-height: 230px;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    #qr-reader video {
+      width: 100% !important;
+      border-radius: 10px;
+      object-fit: cover;
+    }
+
+    #qr-status {
+      display: block;
+      font-size: 12px;
+      color: #795544;
+      margin: 8px 0 16px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
+    .punch-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .punch-step {
+      border: 1px solid #efd0be;
+      border-radius: 12px;
+      background: #fff;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .punch-step strong {
+      font-size: 13px;
+    }
+
+    .punch-step small {
+      color: #8b6250;
+      font-size: 11px;
+    }
+
+    .record-btn {
+      width: 100%;
+      border: none;
+      border-radius: 11px;
+      background: #d43d00;
+      color: white;
+      padding: 16px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+
+    .record-btn:hover,
+    .login-submit:hover {
+      background: #b93300;
+    }
+
+    .record-btn:disabled {
+      opacity: .65;
+      cursor: wait;
+    }
+
+    .hours-note {
+      border-top: 1px solid #efd5c6;
+      padding-top: 18px;
+      margin-top: 22px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .hours-note strong {
+      font-size: 12px;
+      display: block;
+    }
+
+    .hours-note small {
+      display: block;
+      color: #86604f;
+      margin-top: 5px;
+      font-size: 11px;
+    }
+
+    .scanner-note {
+      font-size: 11px;
+      color: #947061;
+      line-height: 1.6;
+      margin-top: 16px;
+    }
+
+    .auth-notice {
+      padding: 13px;
+      border-radius: 9px;
+      background: #e5f8eb;
+      color: #17633a;
+      font-size: 13px;
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+
+    .auth-error {
+      padding: 13px;
+      border-radius: 9px;
+      background: #fff0ee;
+      color: #b42d15;
+      font-size: 13px;
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+
+    .login-panel {
+      background: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 45px;
+    }
+
+    .login-center {
+      width: 100%;
+      max-width: 460px;
+      text-align: center;
+    }
+
+    .login-logo {
+      width: 65px;
+      height: 65px;
+      object-fit: contain;
+      margin-bottom: 20px;
+    }
+
+    .login-center h1 {
+      font-size: 36px;
+      margin: 0 0 10px;
+      font-weight: 800;
+    }
+
+    .login-center > p {
+      font-size: 13px;
+      color: #79584a;
+      margin-bottom: 38px;
+    }
+
+    .login-form {
+      text-align: left;
+    }
+
+    .login-form > label {
+      display: block;
+      font-size: 11px;
+      font-weight: bold;
+      margin: 18px 0 8px;
+    }
+
+    .login-input {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      height: 50px;
+      border: 1px solid #eac8b6;
+      border-radius: 11px;
+      padding: 0 14px;
+    }
+
+    .login-input > span {
+      color: #d43d00;
+    }
+
+    .login-input input {
+      width: 100%;
+      border: none;
+      outline: none;
+      font-size: 13px;
+      color: #3b241a;
+      background: transparent;
+    }
+
+    .toggle-password {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #79584a;
+    }
+
+    .login-submit {
+      display: block;
+      width: 100%;
+      border: none;
+      border-radius: 11px;
+      background: #d43d00;
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      padding: 17px;
+      margin-top: 26px;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+    }
+
+    .login-foot {
+      margin-top: 25px;
+      font-size: 12px;
+      color: #886859;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    @media (max-width: 850px) {
+      .auth-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .clock-panel,
+      .login-panel {
+        padding: 28px 22px;
+      }
+
+      .login-panel {
+        min-height: 500px;
+      }
+
+      .login-center h1 {
+        font-size: 29px;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .punch-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-clock {
+        font-size: 42px;
+      }
+    }
+  </style>
+</head>
+
+<body class="auth-page">
+  <main class="auth-wrap">
+    <div class="auth-grid">
+
+      <!-- LEFT: EMPLOYEE ATTENDANCE -->
+      <section class="clock-panel">
+
+        <div class="auth-brand">
+          <img src="/mindafresh-logo.png" alt="MindaFresh">
+          <strong>MindaFresh</strong>
+          <span class="brand-divider"></span>
+          <span>Attendance ERP</span>
+        </div>
+
+        <div class="shift-chip">
+          <span class="status-dot"></span>
+          Employee Attendance Kiosk
+        </div>
+
+        <div class="hero-clock" id="clock">
+          --:--:-- <small>AM</small>
+        </div>
+
+        <div class="hero-date" id="date">
+          Loading date...
+        </div>
+
+        <h2 class="section-title">
+          Employee QR Attendance
+        </h2>
+
+        <p class="section-description">
+          Tap the scan button to open your camera.
+          Scan your employee QR card to record attendance
+          automatically, or enter your employee code manually.
+        </p>
+
+        {{#if message}}
+          <div class="auth-notice" role="status">
+            {{message}}
+          </div>
+        {{/if}}
+
+        {{#if punchError}}
+          <div class="auth-error" role="alert">
+            {{punchError}}
+          </div>
+        {{/if}}
+
+        <form
+          id="punch-form"
+          action="/kiosk/punch"
+          method="post"
+        >
+          <div class="auth-section-label">
+            EMPLOYEE CODE
+          </div>
+
+          <label class="code-field">
+            <span>▣</span>
+            <input
+              id="employee-code"
+              name="code"
+              placeholder="Enter or scan your employee code"
+              autocomplete="off"
+              maxlength="100"
+              required
+            >
+          </label>
+
+          <div class="qr-controls">
+            <button
+              type="button"
+              class="qr-open-btn"
+              id="start-qr-btn"
+            >
+              📷 Tap to Scan QR
+            </button>
+
+            <button
+              type="button"
+              class="qr-cancel-btn"
+              id="cancel-qr-btn"
+              hidden
+            >
+              ✕ Cancel Camera
+            </button>
+          </div>
+
+          <div
+            class="qr-camera-container"
+            id="qr-camera-container"
+          >
+            <div id="qr-reader"></div>
+          </div>
+
+          <span
+            id="qr-status"
+            role="status"
+            aria-live="polite"
+          >
+            Camera is off. Tap the button to scan.
+          </span>
+
+          <div class="punch-grid">
+            <div class="punch-step">
+              <strong>☀ AM In</strong>
+              <small>Starts 8:00 AM</small>
+            </div>
+
+            <div class="punch-step">
+              <strong>↗ AM Out</strong>
+              <small>Lunch 12:00 PM</small>
+            </div>
+
+            <div class="punch-step">
+              <strong>◒ PM In</strong>
+              <small>Resumes 1:00 PM</small>
+            </div>
+
+            <div class="punch-step">
+              <strong>↗ PM Out</strong>
+              <small>Ends 5:00 PM</small>
+            </div>
+          </div>
+
+          <button
+            class="record-btn"
+            id="record-btn"
+            type="submit"
+          >
+            Record Attendance Manually →
+          </button>
+        </form>
+
+        <div class="hours-note">
+          <span>◷</span>
+          <div>
+            <strong>Work Hours</strong>
+            <small>
+              8:00 AM – 12:00 PM · 1:00 PM – 5:00 PM
+            </small>
+          </div>
+        </div>
+
+        <p class="scanner-note">
+          Attendance is recorded directly after a successful
+          QR scan. No confirmation is required.
+        </p>
+
+      </section>
+
+      <!-- RIGHT: HR / ADMIN LOGIN -->
+      <section class="login-panel">
+        <div class="login-center">
+
+          <img
+            class="login-logo"
+            src="/mindafresh-logo.png"
+            alt="MindaFresh"
+          >
+
+          <h1>Welcome back</h1>
+
+          <p>
+            Log in to your MindaFresh Attendance ERP account
+          </p>
+
+          {{#if staff}}
+            <div class="auth-notice">
+              Signed in as {{staff.username}}.
+            </div>
+
+            <a class="login-submit" href="/dashboard">
+              Go to Dashboard →
+            </a>
+          {{else}}
+
+            {{#if error}}
+              <div class="auth-error" role="alert">
+                {{error}}
+              </div>
+            {{/if}}
+
+            <form
+              method="post"
+              action="/login"
+              class="login-form"
+            >
+              <label for="username">USERNAME</label>
+
+              <div class="login-input">
+                <span>♙</span>
+                <input
+                  id="username"
+                  name="username"
+                  placeholder="Enter your username"
+                  autocomplete="username"
+                  required
+                >
+              </div>
+
+              <label for="password">PASSWORD</label>
+
+              <div class="login-input">
+                <span>♧</span>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  autocomplete="current-password"
+                  required
+                >
+
+                <button
+                  type="button"
+                  class="toggle-password"
+                  id="toggle-password"
+                  aria-label="Show password"
+                >
+                  ◉
+                </button>
+              </div>
+
+              <button class="login-submit" type="submit">
+                Log in →
+              </button>
+            </form>
+
+            <div class="login-foot">
+              Need access? Contact your HR or IT Administrator.
+            </div>
+
+          {{/if}}
+        </div>
+      </section>
+
     </div>
-  </div>
-</main>
-{{> footer}}
+  </main>
+
+  <script>
+    // LIVE CLOCK
+    function tick() {
+      const now = new Date();
+
+      const time = now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
+
+      const parts = time.split(' ');
+
+      document.getElementById('clock').innerHTML =
+        parts[0] + ' <small>' + parts[1] + '</small>';
+
+      document.getElementById('date').textContent =
+        now.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+        });
+    }
+
+    tick();
+    setInterval(tick, 1000);
+
+    // SHOW / HIDE PASSWORD
+    const togglePassword =
+      document.getElementById('toggle-password');
+
+    if (togglePassword) {
+      togglePassword.addEventListener('click', () => {
+        const password =
+          document.getElementById('password');
+
+        const showing = password.type === 'text';
+        password.type = showing ? 'password' : 'text';
+
+        togglePassword.setAttribute(
+          'aria-label',
+          showing ? 'Show password' : 'Hide password'
+        );
+      });
+    }
+
+    // QR SCANNER
+    const startButton =
+      document.getElementById('start-qr-btn');
+
+    const cancelButton =
+      document.getElementById('cancel-qr-btn');
+
+    const cameraContainer =
+      document.getElementById('qr-camera-container');
+
+    const qrStatus =
+      document.getElementById('qr-status');
+
+    const employeeCode =
+      document.getElementById('employee-code');
+
+    const punchForm =
+      document.getElementById('punch-form');
+
+    const recordButton =
+      document.getElementById('record-btn');
+
+    let scanner = null;
+    let scannerRunning = false;
+    let cameraBusy = false;
+    let submitting = false;
+    let scanHandled = false;
+    let cameraCancelled = false;
+
+    function resetCameraUI() {
+      cameraContainer.classList.remove('active');
+
+      startButton.hidden = false;
+      startButton.disabled = false;
+      startButton.textContent = '📷 Tap to Scan QR';
+
+      cancelButton.hidden = true;
+      cancelButton.disabled = false;
+    }
+
+    async function stopCamera() {
+      cameraCancelled = true;
+      cancelButton.disabled = true;
+
+      if (cameraBusy) {
+        qrStatus.textContent = 'Closing camera...';
+        return;
+      }
+
+      if (scanner && scannerRunning) {
+        cameraBusy = true;
+
+        try {
+          await scanner.stop();
+        } catch (error) {
+          console.warn('Camera stop:', error);
+        } finally {
+          scannerRunning = false;
+          cameraBusy = false;
+        }
+      }
+
+      resetCameraUI();
+      qrStatus.textContent =
+        'Camera closed. Tap to Scan QR to open again.';
+    }
+
+    // PREVENT DUPLICATE SUBMISSION
+    punchForm.addEventListener('submit', event => {
+      employeeCode.value = employeeCode.value.trim();
+
+      if (!employeeCode.value || submitting) {
+        event.preventDefault();
+        return;
+      }
+
+      submitting = true;
+
+      recordButton.disabled = true;
+      startButton.disabled = true;
+      cancelButton.disabled = true;
+
+      qrStatus.textContent = 'Recording attendance...';
+    });
+
+    async function startCamera() {
+      if (cameraBusy || scannerRunning || submitting) {
+        return;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        qrStatus.textContent =
+          'Camera requires localhost or HTTPS. ' +
+          'Manual attendance is still available.';
+        return;
+      }
+
+      if (typeof Html5Qrcode === 'undefined') {
+        qrStatus.textContent =
+          'QR scanner library unavailable. ' +
+          'Check your internet connection.';
+        return;
+      }
+
+      cameraBusy = true;
+      cameraCancelled = false;
+      scanHandled = false;
+
+      startButton.hidden = true;
+      cancelButton.hidden = false;
+      cancelButton.disabled = false;
+
+      cameraContainer.classList.add('active');
+      qrStatus.textContent = 'Opening camera...';
+
+      try {
+        if (!scanner) {
+          scanner = new Html5Qrcode('qr-reader');
+        }
+
+        await scanner.start(
+          { facingMode: 'user' },
+          {
+            fps: 10,
+            qrbox: {
+              width: 220,
+              height: 220
+            }
+          },
+          decodedText => {
+            if (
+              submitting ||
+              scanHandled ||
+              cameraCancelled
+            ) {
+              return;
+            }
+
+            const code = String(decodedText || '').trim();
+
+            if (!code || code.length > 100) {
+              qrStatus.textContent =
+                'Invalid QR code. Please try again.';
+              return;
+            }
+
+            // PREVENT ACCIDENTAL REPEATED SCANS
+            try {
+              const last = JSON.parse(
+                sessionStorage.getItem('mf-last-qr') ||
+                'null'
+              );
+
+              if (
+                last &&
+                last.code === code &&
+                Date.now() - last.at < 8000
+              ) {
+                qrStatus.textContent =
+                  'This card was scanned recently. ' +
+                  'Please wait before scanning again.';
+                return;
+              }
+
+              sessionStorage.setItem(
+                'mf-last-qr',
+                JSON.stringify({
+                  code,
+                  at: Date.now()
+                })
+              );
+            } catch (_) {
+              // Storage may be unavailable.
+            }
+
+            scanHandled = true;
+            employeeCode.value = code;
+
+            qrStatus.textContent =
+              'QR detected. Recording attendance...';
+
+            // AUTOMATIC RECORDING - NO CONFIRMATION
+            punchForm.requestSubmit();
+          },
+          () => {
+            // Ignore frames without a QR code.
+          }
+        );
+
+        scannerRunning = true;
+
+        if (cameraCancelled) {
+          await scanner.stop();
+          scannerRunning = false;
+          resetCameraUI();
+          qrStatus.textContent = 'Camera cancelled.';
+        } else {
+          qrStatus.textContent =
+            'Camera ready. Show your employee QR card.';
+        }
+      } catch (error) {
+        scannerRunning = false;
+        resetCameraUI();
+
+        qrStatus.textContent =
+          cameraCancelled
+            ? 'Camera cancelled.'
+            : 'Unable to open camera: ' +
+              (error?.message || String(error));
+      } finally {
+        cameraBusy = false;
+      }
+    }
+
+    startButton.addEventListener('click', startCamera);
+    cancelButton.addEventListener('click', stopCamera);
+
+    window.addEventListener('pagehide', () => {
+      if (scanner && scannerRunning) {
+        scanner.stop().catch(() => {});
+      }
+    });
+  </script>
+</body>
+</html>

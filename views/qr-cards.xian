@@ -1,0 +1,436 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Employee QR Cards | MindaFresh Attendance</title>
+  <link rel="stylesheet" href="/style.css">
+
+  <style>
+    .qr-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    .qr-toolbar h2 {
+      margin: 0 0 6px;
+      color: #301e16;
+    }
+
+    .qr-toolbar p {
+      margin: 0;
+      color: #816d61;
+      font-size: 14px;
+    }
+
+    .qr-print-btn {
+      border: 0;
+      background: #c83b05;
+      color: #fff;
+      border-radius: 10px;
+      padding: 13px 20px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .qr-print-btn:hover {
+      background: #a93104;
+    }
+
+    .qr-warning {
+      color: #9b3e14;
+      margin: 0 0 20px;
+      font-size: 13px;
+    }
+
+    .qr-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+      gap: 16px;
+    }
+
+    .qr-card {
+      background: #fff;
+      color: #301e16;
+      border: 1px solid #ead8cc;
+      border-radius: 14px;
+      text-align: center;
+      padding: 22px 14px;
+      break-inside: avoid;
+    }
+
+    .qr-card strong {
+      display: block;
+      font-size: 15px;
+      margin-bottom: 12px;
+    }
+
+    .qr-code {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 160px;
+      margin: 12px 0;
+    }
+
+    .qr-code img,
+    .qr-code canvas {
+      max-width: 160px;
+      height: auto;
+    }
+
+    .qr-card small {
+      display: block;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    .qr-panel {
+      padding: 24px;
+    }
+
+    .qr-empty {
+      color: #816d61;
+      padding: 20px;
+    }
+
+    .qr-logout-dialog {
+      border: 0;
+      border-radius: 16px;
+      padding: 28px;
+      width: min(420px, calc(100% - 32px));
+      max-width: 420px;
+      box-shadow: 0 20px 60px #0003;
+      color: #301e16;
+    }
+
+    .qr-logout-dialog::backdrop {
+      background: rgba(0, 0, 0, 0.45);
+    }
+
+    .qr-logout-dialog h2 {
+      margin: 0 0 10px;
+      font-size: 21px;
+    }
+
+    .qr-logout-dialog p {
+      color: #816d61;
+      line-height: 1.5;
+    }
+
+    .qr-logout-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .qr-logout-actions form {
+      margin: 0;
+    }
+
+    .qr-logout-actions button {
+      padding: 11px 18px;
+      border-radius: 9px;
+      cursor: pointer;
+    }
+
+    @media print {
+      @page {
+        size: A4;
+        margin: 12mm;
+      }
+
+      .sidebar,
+      .topbar,
+      .page-intro,
+      .qr-toolbar,
+      .qr-warning,
+      .qr-logout-dialog {
+        display: none !important;
+      }
+
+      body,
+      .app-shell,
+      .app-area,
+      .content,
+      .qr-panel {
+        display: block !important;
+        width: 100% !important;
+        max-width: none !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        border: none !important;
+        overflow: visible !important;
+      }
+
+      .qr-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+
+      .qr-card {
+        border: 1px solid #ccc;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <a class="brand" href="/dashboard">
+      <img src="/mindafresh-logo.png" alt="MindaFresh logo">
+      <span>
+        <b>MindaFresh</b>
+        <small>Attendance</small>
+      </span>
+    </a>
+
+    <div class="side-heading">
+      ATTENDANCE MANAGEMENT
+    </div>
+
+    <div class="side-heading workspace">
+      WORKSPACE
+    </div>
+
+    <nav class="side-nav">
+
+      <a class="side-link" href="/dashboard">
+        <span class="nav-icon">▦</span>
+        <span>Dashboard</span>
+      </a>
+
+      <a class="side-link" href="/kiosk">
+        <span class="nav-icon">◷</span>
+        <span>Attendance Kiosk</span>
+      </a>
+
+      <a class="side-link" href="/logs">
+        <span class="nav-icon">▤</span>
+        <span>Attendance Logs</span>
+      </a>
+
+      <a class="side-link" href="/dtr">
+        <span class="nav-icon">▣</span>
+        <span>Daily Time Record</span>
+      </a>
+
+      <a class="side-link" href="/summary">
+        <span class="nav-icon">▥</span>
+        <span>Period Summary</span>
+      </a>
+
+      <a class="side-link" href="/holidays">
+        <span class="nav-icon">▧</span>
+        <span>Holidays</span>
+      </a>
+
+      <a class="side-link active" href="/qr-cards">
+        <span class="nav-icon">▦</span>
+        <span>Employee QR Cards</span>
+      </a>
+
+    </nav>
+
+    <div class="side-bottom">
+      <span class="online-dot"></span>
+      Part of MindaFresh ERP
+      <small>One database. One connected team.</small>
+    </div>
+
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="app-area">
+
+    <header class="topbar">
+
+      <div class="breadcrumbs">
+        MindaFresh ERP
+        <span>/</span>
+        <b>Employee QR Cards</b>
+      </div>
+
+      <div class="account">
+
+        {{#if staff}}
+
+          <div class="avatar">M</div>
+
+          <div class="account-info">
+            <strong>{{staff.username}}</strong>
+            <small>{{staff.role}}</small>
+          </div>
+
+          <button
+            type="button"
+            class="outline small-btn"
+            onclick="document.getElementById('logout-dialog').showModal()"
+          >
+            Logout
+          </button>
+
+        {{else}}
+
+          <a class="outline login-link" href="/login">
+            Staff Login
+          </a>
+
+        {{/if}}
+
+      </div>
+
+    </header>
+
+    <main class="content">
+
+      <section class="page-intro">
+        <div>
+          <div class="eyebrow">
+            MINDAFRESH / ATTENDANCE
+          </div>
+
+          <h1>Employee QR Cards</h1>
+
+          <p class="intro-sub">
+            Generate and print employee QR codes
+            for attendance monitoring.
+          </p>
+        </div>
+      </section>
+
+      <section class="card qr-panel">
+
+        <div class="qr-toolbar">
+
+          <div>
+            <h2>Employee QR Cards</h2>
+            <p>
+              Print these cards and scan them at the attendance kiosk.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            class="qr-print-btn"
+            onclick="window.print()"
+          >
+            Print QR Cards
+          </button>
+
+        </div>
+
+        <p class="qr-warning" id="qr-warning">
+          Loading QR codes...
+        </p>
+
+        <div class="qr-grid">
+
+          {{#each employees}}
+
+          <article class="qr-card">
+
+            <strong>
+              {{first_name}} {{last_name}}
+            </strong>
+
+            <div
+              class="qr-code"
+              data-code="{{employee_code}}"
+            ></div>
+
+            <small>{{employee_code}}</small>
+
+          </article>
+
+          {{else}}
+
+          <p class="qr-empty">
+            No active employees found.
+          </p>
+
+          {{/each}}
+
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+</div>
+
+<!-- LOGOUT MODAL -->
+<dialog id="logout-dialog" class="qr-logout-dialog">
+
+  <h2>Are you sure you want to log out?</h2>
+
+  <p>
+    You will need to log in again to access your account.
+  </p>
+
+  <div class="qr-logout-actions">
+
+    <button
+      type="button"
+      class="outline"
+      onclick="document.getElementById('logout-dialog').close()"
+    >
+      Cancel
+    </button>
+
+    <form method="post" action="/logout">
+      <button type="submit">Log Out</button>
+    </form>
+
+  </div>
+
+</dialog>
+
+<!-- QR CODE LIBRARY -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+  const warning = document.getElementById("qr-warning");
+
+  if (typeof QRCode === "undefined") {
+
+    warning.textContent =
+      "QR library could not load. Connect to the internet and refresh before printing.";
+
+  } else {
+
+    document.querySelectorAll(".qr-code").forEach(el => {
+
+      new QRCode(el, {
+        text: el.dataset.code,
+        width: 160,
+        height: 160,
+        correctLevel: QRCode.CorrectLevel.M
+      });
+
+    });
+
+    warning.textContent =
+      "QR codes ready. Print cards for authorized employees only.";
+
+  }
+</script>
+
+</body>
+</html>

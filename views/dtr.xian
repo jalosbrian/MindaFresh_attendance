@@ -1,0 +1,817 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily Time Record | MindaFresh Attendance</title>
+<link rel="stylesheet" href="/style.css">
+
+<style>
+.dtr-page { padding-bottom: 45px; }
+
+.dtr-filter-card,
+.dtr-report {
+  padding: 24px;
+  border: 1px solid #ead9cd;
+  border-radius: 17px;
+  background: #fff;
+  margin-bottom: 22px;
+}
+
+.dtr-section-heading h2,
+.dtr-report-header h2 {
+  margin: 0 0 6px;
+  color: #352219;
+  font-size: 20px;
+}
+
+.dtr-section-heading p,
+.dtr-report-header p {
+  margin: 0;
+  color: #886c5c;
+  font-size: 13px;
+}
+
+.dtr-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 13px;
+  margin-top: 20px;
+}
+
+.dtr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 155px;
+  flex: 1;
+}
+
+.dtr-employee { flex: 1.8; }
+
+.dtr-field span {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #73584a;
+}
+
+.dtr-field input,
+.dtr-field select {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid #e5d0c2;
+  border-radius: 9px;
+  background: white;
+  color: #432b20;
+  font: inherit;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.dtr-field input:focus,
+.dtr-field select:focus {
+  outline: none;
+  border-color: #cf3b00;
+  box-shadow: 0 0 0 3px #cf3b0015;
+}
+
+.dtr-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.dtr-primary,
+.dtr-print {
+  min-height: 44px;
+  padding: 0 17px;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dtr-primary {
+  background: #cf3b00;
+  border: 1px solid #cf3b00;
+  color: white;
+}
+
+.dtr-primary:hover { background: #b63200; }
+
+.dtr-print {
+  background: #fff9f5;
+  border: 1px solid #e6cbbb;
+  color: #a93708;
+}
+
+.dtr-print:hover { background: #fff0e6; }
+
+.dtr-report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.dtr-report-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  color: #c33b08;
+  letter-spacing: 1px;
+  margin-bottom: 7px;
+}
+
+.dtr-range span {
+  color: #b8a195;
+  padding: 0 5px;
+}
+
+.dtr-record-count {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 11px 18px;
+  border-radius: 12px;
+  background: #fff0e6;
+  color: #b63b08;
+}
+
+.dtr-record-count strong { font-size: 21px; }
+.dtr-record-count span { font-size: 10px; }
+
+.dtr-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.dtr-table {
+  width: 100%;
+  min-width: 1050px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.dtr-table th {
+  padding: 14px 12px;
+  background: #fff5ef;
+  border-bottom: 1px solid #eddacf;
+  text-align: left;
+  color: #705243;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.dtr-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid #f0e5dd;
+  color: #453127;
+  white-space: nowrap;
+}
+
+.dtr-table tbody tr:hover { background: #fffaf6; }
+
+.dtr-name,
+.dtr-date { font-weight: 700; }
+
+.dtr-number { text-align: center; }
+
+.dtr-status {
+  display: inline-block;
+  padding: 6px 11px;
+  border-radius: 20px;
+  background: #f0ece8;
+  color: #674d40;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.status-present {
+  background: #e7f6ec;
+  color: #267a42;
+}
+
+.status-late {
+  background: #fff1d9;
+  color: #a36a00;
+}
+
+.status-absent {
+  background: #fde9e7;
+  color: #b53229;
+}
+
+.status-on_leave {
+  background: #e9efff;
+  color: #365da6;
+}
+
+.dtr-empty {
+  padding: 35px !important;
+  text-align: center !important;
+  color: #94796b !important;
+}
+
+.dtr-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 20px 0;
+}
+
+.dtr-page-info {
+  color: #866b5d;
+  font-size: 12px;
+}
+
+.dtr-page-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dtr-page-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 11px;
+  border: 1px solid #ead6c9;
+  border-radius: 8px;
+  background: #fff;
+  color: #674a3a;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dtr-page-btn.active {
+  background: #cf3b00;
+  border-color: #cf3b00;
+  color: #fff;
+}
+
+.dtr-page-btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+.dtr-report-footer {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 0;
+  border-top: 1px solid #f0e5dd;
+  color: #92786b;
+  font-size: 11px;
+}
+
+.dtr-signatures {
+  display: flex;
+  justify-content: space-around;
+  gap: 30px;
+  margin-top: 45px;
+}
+
+.dtr-signatures > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 220px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.dtr-signature-line {
+  width: 100%;
+  border-top: 1px solid #8a7162;
+  margin-bottom: 10px;
+}
+
+.dtr-signatures small { color: #91776a; }
+
+.dtr-dialog {
+  position: fixed;
+  width: min(430px, calc(100vw - 32px));
+  max-width: 100%;
+  max-height: calc(100vh - 32px);
+  margin: auto;
+  padding: 27px;
+  border: 1px solid #ead4c6;
+  border-radius: 18px;
+  background: #fffdfa;
+  color: #352219;
+  box-shadow: 0 20px 65px #2b180f40;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.dtr-dialog::backdrop {
+  background: #26160e88;
+}
+
+.dtr-dialog h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
+}
+
+.dtr-dialog p {
+  color: #866b5d;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.dtr-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
+}
+
+.dtr-modal-actions button {
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dtr-cancel {
+  background: #fff;
+  border: 1px solid #e7d0c2;
+  color: #674a3a;
+}
+
+.dtr-confirm {
+  background: #cf3b00;
+  border: 1px solid #cf3b00;
+  color: #fff;
+}
+
+@media(max-width:700px) {
+  .dtr-filter-card,
+  .dtr-report { padding: 16px; }
+
+  .dtr-filters { flex-direction: column; align-items: stretch; }
+
+  .dtr-field,
+  .dtr-employee { width: 100%; }
+
+  .dtr-filter-actions button { flex: 1; }
+
+  .dtr-signatures { gap: 15px; }
+
+  .dtr-signatures > div { width: 45%; }
+}
+
+@media print {
+  @page { size: A4 landscape; margin: 12mm; }
+
+  body { background: #fff !important; }
+
+  .sidebar,
+  .topbar,
+  .page-intro,
+  .dtr-filter-card,
+  .dtr-pagination,
+  .dtr-dialog {
+    display: none !important;
+  }
+
+  .app-shell,
+  .app-area,
+  .content,
+  .dtr-page {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .dtr-report {
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .dtr-table-scroll { overflow: visible !important; }
+
+  .dtr-table {
+    min-width: 0 !important;
+    width: 100%;
+    font-size: 9px;
+  }
+
+  .dtr-table th,
+  .dtr-table td {
+    padding: 7px 5px;
+  }
+
+  .dtr-table tr { break-inside: avoid; }
+
+  .dtr-data-row {
+    display: table-row !important;
+  }
+
+  .dtr-signatures { break-inside: avoid; }
+}
+</style>
+</head>
+
+<body>
+<div class="app-shell">
+
+  <aside class="sidebar">
+    <a class="brand" href="/dashboard">
+      <img src="/mindafresh-logo.png" alt="MindaFresh logo">
+      <span>
+        <b>MindaFresh</b>
+        <small>Attendance</small>
+      </span>
+    </a>
+
+    <div class="side-heading">ATTENDANCE MANAGEMENT</div>
+    <div class="side-heading workspace">WORKSPACE</div>
+
+    <nav class="side-nav">
+      <a class="side-link" href="/dashboard">
+        <span class="nav-icon">▦</span><span>Dashboard</span>
+      </a>
+      <a class="side-link" href="/kiosk">
+        <span class="nav-icon">◷</span><span>Attendance Kiosk</span>
+      </a>
+      <a class="side-link" href="/logs">
+        <span class="nav-icon">▤</span><span>Attendance Logs</span>
+      </a>
+      <a class="side-link active" href="/dtr">
+        <span class="nav-icon">▣</span><span>Daily Time Record</span>
+      </a>
+      <a class="side-link" href="/summary">
+        <span class="nav-icon">▥</span><span>Period Summary</span>
+      </a>
+      <a class="side-link" href="/holidays">
+        <span class="nav-icon">▧</span><span>Holidays</span>
+      </a>
+      <a class="side-link" href="/qr-cards">
+        <span class="nav-icon">▦</span><span>Employee QR Cards</span>
+      </a>
+    </nav>
+
+    <div class="side-bottom">
+      <span class="online-dot"></span>
+      Part of MindaFresh ERP
+      <small>One database. One connected team.</small>
+    </div>
+  </aside>
+
+  <div class="app-area">
+
+    <header class="topbar">
+      <div class="breadcrumbs">
+        MindaFresh ERP <span>/</span>
+        <b>Daily Time Record</b>
+      </div>
+
+      <div class="account">
+        {{#if staff}}
+          <div class="avatar">M</div>
+          <div class="account-info">
+            <strong>{{staff.username}}</strong>
+            <small>{{staff.role}}</small>
+          </div>
+          <button
+            type="button"
+            class="outline small-btn"
+            id="open-dtr-logout"
+          >
+            Logout
+          </button>
+        {{else}}
+          <a class="outline login-link" href="/login">
+            Staff Login
+          </a>
+        {{/if}}
+      </div>
+    </header>
+
+    <main class="content dtr-page">
+
+      <section class="page-intro">
+        <div>
+          <div class="eyebrow">MINDAFRESH / ATTENDANCE</div>
+          <h1>Daily Time Record</h1>
+          <p class="intro-sub">
+            Review employee punches, generate records,
+            and print attendance reports.
+          </p>
+        </div>
+      </section>
+
+      <!-- FILTER -->
+      <section class="dtr-filter-card">
+        <div class="dtr-section-heading">
+          <h2>Generate DTR</h2>
+          <p>
+            Choose an employee and a date range
+            to view attendance records.
+          </p>
+        </div>
+
+        <form
+          method="get"
+          action="/dtr"
+          class="dtr-filters"
+          id="dtr-filter-form"
+        >
+          <label class="dtr-field dtr-employee">
+            <span>Employee</span>
+            <select name="employee_id">
+              <option value="">All employees</option>
+              {{#each employees}}
+                <option value="{{id}}" {{#if selected}}selected{{/if}}>
+                  {{last_name}}, {{first_name}} ({{employee_code}})
+                </option>
+              {{/each}}
+            </select>
+          </label>
+
+          <label class="dtr-field">
+            <span>From date</span>
+            <input
+              type="date"
+              name="from"
+              value="{{from}}"
+              required
+            >
+          </label>
+
+          <label class="dtr-field">
+            <span>To date</span>
+            <input
+              type="date"
+              name="to"
+              value="{{to}}"
+              required
+            >
+          </label>
+
+          <div class="dtr-filter-actions">
+            <button type="submit" class="dtr-primary">
+              Generate DTR
+            </button>
+            <button type="button" class="dtr-print" id="print-dtr">
+              Print DTR
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- REPORT -->
+      <section class="dtr-report">
+
+        <div class="dtr-report-header">
+          <div>
+            <div class="dtr-report-kicker">
+              ATTENDANCE REPORT
+            </div>
+            <h2>Daily Time Record</h2>
+            <p class="dtr-range">
+              {{from}} <span>to</span> {{to}}
+            </p>
+          </div>
+
+          <div class="dtr-record-count">
+            <strong id="dtr-total">0</strong>
+            <span>Records found</span>
+          </div>
+        </div>
+
+        <div class="dtr-table-scroll">
+          <table class="dtr-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Employee</th>
+                <th>Time in</th>
+                <th>Lunch out</th>
+                <th>Lunch in</th>
+                <th>Time out</th>
+                <th>Hours</th>
+                <th>Late <small>(min)</small></th>
+                <th>Undertime <small>(min)</small></th>
+                <th>Status</th>
+              </tr>
+            </thead>
+
+            <tbody id="dtr-tbody">
+              {{#each rows}}
+                <tr class="dtr-data-row">
+                  <td class="dtr-date">{{date log_date}}</td>
+                  <td class="dtr-name">{{name}}</td>
+                  <td>{{timeOnly time_in}}</td>
+                  <td>{{timeOnly lunch_out}}</td>
+                  <td>{{timeOnly lunch_in}}</td>
+                  <td>{{timeOnly time_out}}</td>
+                  <td class="dtr-number">{{hours_worked}}</td>
+                  <td class="dtr-number">{{late_minutes}}</td>
+                  <td class="dtr-number">{{undertime_minutes}}</td>
+                  <td>
+                    <span class="dtr-status status-{{status}}">
+                      {{status}}
+                    </span>
+                  </td>
+                </tr>
+              {{else}}
+                <tr>
+                  <td colspan="10" class="dtr-empty">
+                    No attendance records found for the selected filters.
+                  </td>
+                </tr>
+              {{/each}}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINATION -->
+        <div class="dtr-pagination">
+          <div class="dtr-page-info" id="dtr-page-info">
+            Showing records
+          </div>
+
+          <div class="dtr-page-buttons" id="dtr-page-buttons"></div>
+        </div>
+
+        <div class="dtr-report-footer">
+          <span>Generated from MindaFresh Attendance</span>
+          <span id="dtr-footer-count">0 record(s)</span>
+        </div>
+
+        <div class="dtr-signatures">
+          <div>
+            <span class="dtr-signature-line"></span>
+            <strong>Prepared by</strong>
+            <small>Authorized personnel</small>
+          </div>
+
+          <div>
+            <span class="dtr-signature-line"></span>
+            <strong>Approved by</strong>
+            <small>HR / Administrator</small>
+          </div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- LOGOUT MODAL -->
+<dialog id="dtr-logout-dialog" class="dtr-dialog">
+  <h2>Log out of MindaFresh?</h2>
+  <p>
+    Are you sure you want to log out?
+    You will need to sign in again to access
+    your Attendance ERP account.
+  </p>
+
+  <div class="dtr-modal-actions">
+    <button type="button" class="dtr-cancel" id="cancel-dtr-logout">
+      Cancel
+    </button>
+
+    <form method="post" action="/logout">
+      <button type="submit" class="dtr-confirm">
+        Log Out
+      </button>
+    </form>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  "use strict";
+
+  const rows = Array.from(
+    document.querySelectorAll("#dtr-tbody .dtr-data-row")
+  );
+
+  const perPage = 10;
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+
+  let currentPage = 1;
+
+  const info = document.getElementById("dtr-page-info");
+  const buttons = document.getElementById("dtr-page-buttons");
+
+  document.getElementById("dtr-total").textContent = total;
+  document.getElementById("dtr-footer-count").textContent =
+    total + " record(s)";
+
+  function addButton(label, page, disabled, active) {
+    const btn = document.createElement("button");
+
+    btn.type = "button";
+    btn.className = "dtr-page-btn";
+    btn.textContent = label;
+    btn.disabled = disabled;
+
+    if (active) {
+      btn.classList.add("active");
+      btn.setAttribute("aria-current", "page");
+    }
+
+    btn.addEventListener("click", () => {
+      if (disabled) return;
+      currentPage = page;
+      render();
+    });
+
+    buttons.appendChild(btn);
+  }
+
+  function render() {
+    const start = (currentPage - 1) * perPage;
+    const end = Math.min(start + perPage, total);
+
+    rows.forEach((row, index) => {
+      row.style.display =
+        index >= start && index < end ? "" : "none";
+    });
+
+    info.textContent = total
+      ? "Showing " + (start + 1) + "–" + end +
+        " of " + total + " records"
+      : "No records found";
+
+    buttons.innerHTML = "";
+
+    if (totalPages <= 1) return;
+
+    addButton("Previous", currentPage - 1, currentPage === 1, false);
+
+    for (let p = 1; p <= totalPages; p++) {
+      addButton(String(p), p, false, p === currentPage);
+    }
+
+    addButton(
+      "Next",
+      currentPage + 1,
+      currentPage === totalPages,
+      false
+    );
+  }
+
+  render();
+
+  /* FILTER VALIDATION */
+  document.getElementById("dtr-filter-form")
+    .addEventListener("submit", event => {
+      const form = event.currentTarget;
+      const from = form.elements.from.value;
+      const to = form.elements.to.value;
+
+      if (from && to && from > to) {
+        event.preventDefault();
+        alert("From date cannot be later than To date.");
+      }
+    });
+
+  /* PRINT ALL FILTERED RECORDS */
+  document.getElementById("print-dtr")
+    .addEventListener("click", () => {
+      window.print();
+    });
+
+  /* LOGOUT */
+  const dialog = document.getElementById("dtr-logout-dialog");
+  const logoutBtn = document.getElementById("open-dtr-logout");
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => dialog.showModal());
+  }
+
+  document.getElementById("cancel-dtr-logout")
+    .addEventListener("click", () => dialog.close());
+
+  dialog.addEventListener("click", event => {
+    if (event.target === dialog) dialog.close();
+  });
+})();
+</script>
+</body>
+</html>

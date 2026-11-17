@@ -1,0 +1,783 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Holidays | MindaFresh Attendance</title>
+  <link rel="stylesheet" href="/style.css">
+
+  <style>
+    /* HOLIDAY PAGE */
+    .holiday-add-card,
+    .holiday-list-card {
+      padding: 22px;
+      margin-bottom: 18px;
+      border: 1px solid #eadbd0;
+      border-radius: 15px;
+      background: #fff;
+    }
+
+    .holiday-add-card h2,
+    .holiday-list-card h2 {
+      margin: 0 0 17px;
+      font-size: 17px;
+      color: #39251b;
+    }
+
+    .holiday-add-form {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .holiday-add-form input,
+    .holiday-add-form select {
+      min-height: 42px;
+      padding: 10px 12px;
+      border: 1px solid #ead5c7;
+      border-radius: 9px;
+      background: #fff;
+      color: #493126;
+      font: inherit;
+      font-size: 13px;
+    }
+
+    .holiday-add-form input[name="name"] {
+      min-width: 220px;
+      flex: 1;
+    }
+
+    .holiday-primary-btn {
+      min-height: 42px;
+      padding: 10px 17px;
+      border: 1px solid #cf3b00;
+      border-radius: 9px;
+      background: #cf3b00;
+      color: #fff;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .holiday-primary-btn:hover {
+      background: #b63400;
+    }
+
+    .holiday-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .holiday-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .holiday-table th {
+      padding: 15px 13px;
+      background: #fff7f2;
+      border-bottom: 1px solid #eadbd0;
+      color: #76594a;
+      text-align: left;
+      font-size: 12px;
+    }
+
+    .holiday-table td {
+      padding: 15px 13px;
+      border-bottom: 1px solid #f0e5dd;
+      color: #493126;
+      vertical-align: middle;
+    }
+
+    .holiday-table tbody tr:hover {
+      background: #fffaf6;
+    }
+
+    .holiday-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .holiday-name {
+      font-weight: 650;
+    }
+
+    .holiday-type {
+      display: inline-block;
+      padding: 6px 11px;
+      border-radius: 20px;
+      background: #fff0e5;
+      color: #a73b0b;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: capitalize;
+    }
+
+    .holiday-type.regular {
+      background: #e9f5ed;
+      color: #247344;
+    }
+
+    .holiday-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .holiday-edit-btn,
+    .holiday-delete-btn {
+      padding: 9px 15px;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .holiday-edit-btn {
+      border: 1px solid #e9cdbd;
+      background: #fff8f3;
+      color: #b43a07;
+    }
+
+    .holiday-edit-btn:hover {
+      background: #ffecdf;
+    }
+
+    .holiday-delete-btn {
+      border: 1px solid #f1d4cd;
+      background: #fff4f1;
+      color: #b42318;
+    }
+
+    .holiday-delete-btn:hover {
+      background: #ffe8e2;
+    }
+
+    /* MODALS */
+    .mf-modal {
+      position: fixed;
+      width: min(440px, calc(100vw - 32px));
+      max-width: 100%;
+      max-height: calc(100vh - 32px);
+      margin: auto;
+      padding: 28px;
+      border: 1px solid #efd8c9;
+      border-radius: 19px;
+      background: #fffdfb;
+      color: #39251b;
+      box-shadow: 0 25px 75px rgba(39, 22, 13, .24);
+      font-family: inherit;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+
+    .mf-modal::backdrop {
+      background: rgba(36, 23, 16, .52);
+      backdrop-filter: blur(3px);
+    }
+
+    .mf-modal-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 52px;
+      height: 52px;
+      margin-bottom: 17px;
+      border-radius: 14px;
+      background: #fff0e6;
+      color: #cf3b00;
+      font-size: 24px;
+    }
+
+    .mf-modal-icon.danger {
+      background: #fff0ed;
+      color: #bd2e20;
+    }
+
+    .mf-modal h2 {
+      margin: 0 0 9px;
+      font-size: 22px;
+      font-weight: 750;
+      letter-spacing: -.4px;
+      color: #39251b;
+    }
+
+    .mf-modal p {
+      margin: 0 0 20px;
+      color: #82695a;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .mf-modal-field {
+      margin-bottom: 16px;
+    }
+
+    .mf-modal-field label {
+      display: block;
+      margin-bottom: 7px;
+      color: #654b3e;
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+    }
+
+    .mf-modal-field input,
+    .mf-modal-field select {
+      display: block;
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid #e8d1c2;
+      border-radius: 9px;
+      background: #fff;
+      color: #39251b;
+      font: inherit;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+
+    .mf-modal-field input:focus,
+    .mf-modal-field select:focus {
+      outline: none;
+      border-color: #cf3b00;
+      box-shadow: 0 0 0 3px rgba(207, 59, 0, .09);
+    }
+
+    .mf-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .mf-modal-actions button {
+      min-height: 42px;
+      padding: 10px 17px;
+      border-radius: 9px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .mf-cancel-btn {
+      border: 1px solid #e8d2c5;
+      background: #fff;
+      color: #684a3b;
+    }
+
+    .mf-save-btn {
+      border: 1px solid #cf3b00;
+      background: #cf3b00;
+      color: #fff;
+    }
+
+    .mf-danger-btn {
+      border: 1px solid #bd2e20;
+      background: #bd2e20;
+      color: #fff;
+    }
+
+    .mf-save-btn:hover {
+      background: #b63200;
+    }
+
+    .mf-danger-btn:hover {
+      background: #9f2419;
+    }
+
+    @media (max-width: 650px) {
+      .holiday-add-form {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .holiday-add-form input,
+      .holiday-add-form select,
+      .holiday-add-form button {
+        width: 100%;
+      }
+
+      .holiday-table {
+        min-width: 650px;
+      }
+
+      .mf-modal {
+        padding: 23px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <a class="brand" href="/dashboard">
+        <img src="/mindafresh-logo.png" alt="MindaFresh logo">
+        <span>
+          <b>MindaFresh</b>
+          <small>Attendance</small>
+        </span>
+      </a>
+
+      <div class="side-heading">
+        ATTENDANCE MANAGEMENT
+      </div>
+
+      <div class="side-heading workspace">
+        WORKSPACE
+      </div>
+
+      <nav class="side-nav">
+        <a class="side-link" href="/dashboard">
+          <span class="nav-icon">▦</span>
+          <span>Dashboard</span>
+        </a>
+
+        <a class="side-link" href="/kiosk">
+          <span class="nav-icon">◷</span>
+          <span>Attendance Kiosk</span>
+        </a>
+
+        <a class="side-link" href="/logs">
+          <span class="nav-icon">▤</span>
+          <span>Attendance Logs</span>
+        </a>
+
+        <a class="side-link" href="/dtr">
+          <span class="nav-icon">▣</span>
+          <span>Daily Time Record</span>
+        </a>
+
+        <a class="side-link" href="/summary">
+          <span class="nav-icon">▥</span>
+          <span>Period Summary</span>
+        </a>
+
+        <a class="side-link active" href="/holidays">
+          <span class="nav-icon">▧</span>
+          <span>Holidays</span>
+        </a>
+      </nav>
+
+      <div class="side-bottom">
+        <span class="online-dot"></span>
+        Part of MindaFresh ERP
+        <small>One database. One connected team.</small>
+      </div>
+    </aside>
+
+    <!-- MAIN APPLICATION -->
+    <div class="app-area">
+
+      <header class="topbar">
+        <div class="breadcrumbs">
+          MindaFresh ERP
+          <span>/</span>
+          <b>Holidays</b>
+        </div>
+
+        <div class="account">
+          {{#if staff}}
+            <div class="avatar">M</div>
+
+            <div class="account-info">
+              <strong>{{staff.username}}</strong>
+              <small>{{staff.role}}</small>
+            </div>
+
+            <button
+              type="button"
+              class="outline small-btn"
+              id="logout-btn"
+            >
+              Logout
+            </button>
+          {{else}}
+            <a class="outline login-link" href="/login">
+              Staff Login
+            </a>
+          {{/if}}
+        </div>
+      </header>
+
+      <!-- HOLIDAYS CONTENT -->
+      <main class="content">
+
+        <div class="page-intro">
+          <div>
+            <div class="eyebrow">
+              MINDAFRESH / ATTENDANCE
+            </div>
+
+            <h1>Holidays</h1>
+
+            <p class="intro-sub">
+              Manage regular and special holidays
+              for employee attendance records.
+            </p>
+          </div>
+        </div>
+
+        <!-- ADD HOLIDAY -->
+        <div class="holiday-add-card">
+          <h2>Add Holiday</h2>
+
+          <form
+            class="holiday-add-form"
+            method="post"
+            action="/holidays"
+          >
+            <input
+              type="date"
+              name="holiday_date"
+              aria-label="Holiday date"
+              required
+            >
+
+            <input
+              type="text"
+              name="name"
+              placeholder="Holiday name"
+              aria-label="Holiday name"
+              maxlength="100"
+              required
+            >
+
+            <select
+              name="holiday_type"
+              aria-label="Holiday type"
+            >
+              <option value="regular">Regular Holiday</option>
+              <option value="special">Special Holiday</option>
+            </select>
+
+            <button class="holiday-primary-btn" type="submit">
+              + Add Holiday
+            </button>
+          </form>
+        </div>
+
+        <!-- HOLIDAY RECORDS -->
+        <div class="holiday-list-card">
+          <h2>Holiday Records</h2>
+
+          <div class="holiday-table-wrap">
+            <table class="holiday-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Holiday Name</th>
+                  <th>Type</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {{#each rows}}
+                  <tr>
+                    <td>{{date holiday_date}}</td>
+
+                    <td class="holiday-name">
+                      {{name}}
+                    </td>
+
+                    <td>
+                      <span class="holiday-type {{holiday_type}}">
+                        {{holiday_type}}
+                      </span>
+                    </td>
+
+                    <td>
+                      <div class="holiday-actions">
+                        <button
+                          type="button"
+                          class="holiday-edit-btn"
+                          data-edit-holiday
+                          data-id="{{id}}"
+                          data-date="{{date holiday_date}}"
+                          data-name="{{name}}"
+                          data-type="{{holiday_type}}"
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          class="holiday-delete-btn"
+                          data-delete-holiday
+                          data-id="{{id}}"
+                          data-name="{{name}}"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                {{/each}}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- EDIT HOLIDAY MODAL -->
+  <dialog
+    id="edit-holiday-dialog"
+    class="mf-modal"
+    aria-labelledby="edit-holiday-title"
+  >
+    <div class="mf-modal-icon">✎</div>
+
+    <h2 id="edit-holiday-title">Edit Holiday</h2>
+
+    <p>
+      Update the holiday information below.
+    </p>
+
+    <form
+      method="post"
+      id="edit-holiday-form"
+    >
+      <div class="mf-modal-field">
+        <label for="edit-holiday-date">
+          Holiday Date
+        </label>
+
+        <input
+          type="date"
+          id="edit-holiday-date"
+          name="holiday_date"
+          required
+        >
+      </div>
+
+      <div class="mf-modal-field">
+        <label for="edit-holiday-name">
+          Holiday Name
+        </label>
+
+        <input
+          type="text"
+          id="edit-holiday-name"
+          name="name"
+          maxlength="100"
+          required
+        >
+      </div>
+
+      <div class="mf-modal-field">
+        <label for="edit-holiday-type">
+          Holiday Type
+        </label>
+
+        <select
+          id="edit-holiday-type"
+          name="holiday_type"
+          required
+        >
+          <option value="regular">Regular Holiday</option>
+          <option value="special">Special Holiday</option>
+        </select>
+      </div>
+
+      <div class="mf-modal-actions">
+        <button
+          type="button"
+          class="mf-cancel-btn"
+          id="cancel-edit"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          class="mf-save-btn"
+        >
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- DELETE HOLIDAY MODAL -->
+  <dialog
+    id="delete-holiday-dialog"
+    class="mf-modal"
+    aria-labelledby="delete-holiday-title"
+  >
+    <div class="mf-modal-icon danger">!</div>
+
+    <h2 id="delete-holiday-title">
+      Delete Holiday?
+    </h2>
+
+    <p>
+      Are you sure you want to delete
+      <strong id="delete-holiday-name"></strong>?
+      This action cannot be undone.
+    </p>
+
+    <form
+      method="post"
+      id="delete-holiday-form"
+    >
+      <div class="mf-modal-actions">
+        <button
+          type="button"
+          class="mf-cancel-btn"
+          id="cancel-delete"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          class="mf-danger-btn"
+        >
+          Delete Holiday
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- LOGOUT CONFIRMATION MODAL -->
+  <dialog
+    id="logout-dialog"
+    class="mf-modal"
+    aria-labelledby="logout-title"
+  >
+    <div class="mf-modal-icon">↪</div>
+
+    <h2 id="logout-title">
+      Log out of MindaFresh?
+    </h2>
+
+    <p>
+      Are you sure you want to log out?
+      You will need to sign in again to access
+      your Attendance ERP account.
+    </p>
+
+    <div class="mf-modal-actions">
+      <button
+        type="button"
+        class="mf-cancel-btn"
+        id="cancel-logout"
+      >
+        Cancel
+      </button>
+
+      <form method="post" action="/logout">
+        <button
+          type="submit"
+          class="mf-save-btn"
+        >
+          Log Out
+        </button>
+      </form>
+    </div>
+  </dialog>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+      // EDIT HOLIDAY MODAL
+      const editDialog =
+        document.getElementById('edit-holiday-dialog');
+
+      const editForm =
+        document.getElementById('edit-holiday-form');
+
+      const editDate =
+        document.getElementById('edit-holiday-date');
+
+      const editName =
+        document.getElementById('edit-holiday-name');
+
+      const editType =
+        document.getElementById('edit-holiday-type');
+
+      document.querySelectorAll('[data-edit-holiday]')
+        .forEach(button => {
+          button.addEventListener('click', () => {
+            const id = button.dataset.id;
+
+            editForm.action =
+              '/holidays/' + encodeURIComponent(id);
+
+            editDate.value = button.dataset.date;
+            editName.value = button.dataset.name;
+            editType.value = button.dataset.type;
+
+            editDialog.showModal();
+          });
+        });
+
+      document.getElementById('cancel-edit')
+        .addEventListener('click', () => {
+          editDialog.close();
+        });
+
+      // DELETE HOLIDAY MODAL
+      const deleteDialog =
+        document.getElementById('delete-holiday-dialog');
+
+      const deleteForm =
+        document.getElementById('delete-holiday-form');
+
+      document.querySelectorAll('[data-delete-holiday]')
+        .forEach(button => {
+          button.addEventListener('click', () => {
+            const id = button.dataset.id;
+
+            deleteForm.action =
+              '/holidays/' +
+              encodeURIComponent(id) +
+              '/delete';
+
+            document.getElementById('delete-holiday-name')
+              .textContent = button.dataset.name;
+
+            deleteDialog.showModal();
+          });
+        });
+
+      document.getElementById('cancel-delete')
+        .addEventListener('click', () => {
+          deleteDialog.close();
+        });
+
+      // LOGOUT MODAL
+      const logoutBtn =
+        document.getElementById('logout-btn');
+
+      const logoutDialog =
+        document.getElementById('logout-dialog');
+
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+          logoutDialog.showModal();
+        });
+      }
+
+      document.getElementById('cancel-logout')
+        .addEventListener('click', () => {
+          logoutDialog.close();
+        });
+
+    });
+  </script>
+</body>
+</html>
